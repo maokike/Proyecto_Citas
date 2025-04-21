@@ -41,8 +41,7 @@ namespace App_Citas_medicas_backend.Controllers
 
             if (registrado)
             {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario ok" +
-                    "" });
+                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario ok"});
             }
             else
             {
