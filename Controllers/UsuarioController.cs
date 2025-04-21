@@ -45,7 +45,7 @@ namespace App_Citas_medicas_backend.Controllers
             }
             else
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar el usuario." });
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar." });
             }
         }
 
