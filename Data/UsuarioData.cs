@@ -18,7 +18,7 @@ namespace App_Citas_medicas_backend.Data
             {
                 ConexionBD objEst = new ConexionBD();
 
-                string sentencia = $"EXEC RegistrarUsuario '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
+                string sentencia = $"EXEC RegistrarUsuario '{oUsuario.Cedula}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
                                    $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}';";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia); // 👀 Ver qué consulta se ejecuta
@@ -48,7 +48,7 @@ namespace App_Citas_medicas_backend.Data
                 ConexionBD objEst = new ConexionBD();
                 string sentencia;
 
-               sentencia = $"EXEC ActualizarUsuario '{oUsuario.Id}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
+               sentencia = $"EXEC ActualizarUsuario '{oUsuario.Cedula}', '{oUsuario.Id}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
                                    $"'{oUsuario.Email}', '{oUsuario.Rol}' , '{oUsuario.Contraseña}',  '{oUsuario.EspecialidadId}';";
 
                if (!objEst.EjecutarSentencia(sentencia, false))
