@@ -15,6 +15,7 @@ namespace App_Citas_medicas_backend.Models
         public string Contraseña { get; set; }
         public string Rol { get; set; }
         public int EspecialidadId { get; set; }
+        public bool Estatus { get; set; }
         public DateTime FechaRegistro { get; set; }
 
 

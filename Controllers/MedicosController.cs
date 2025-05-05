@@ -1,8 +1,6 @@
 ﻿using App_Citas_medicas_backend.Data;
 using App_Citas_medicas_backend.Models;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
@@ -11,47 +9,51 @@ namespace App_Citas_medicas_backend.Controllers
 {
     public class MedicosController : ApiController
     {
-        // GET api/<controller>
-        public IEnumerable<string> Get()
+        [HttpGet]
+        public List<Medicos> Get()
         {
-            return new string[] { "value1", "value2" };
+            return MedicosData.ListarMedicos();
         }
 
-        // GET api/<controller>/5
-        public string Get(int id)
+        [HttpGet]
+        [Route("api/Medicos/{id}")]
+        public HttpResponseMessage Get(int id)
         {
-            return "value";
+            var medico = MedicosData.ConsultarMedico(id);
+            if (medico == null)
+                return Request.CreateResponse(HttpStatusCode.NotFound, new { mensaje = "Médico no encontrado." });
+
+            return Request.CreateResponse(HttpStatusCode.OK, medico);
         }
 
-        // POST api/<controller>
         [HttpPost]
         public HttpResponseMessage Post([FromBody] Medicos oMedicos)
         {
             if (oMedicos == null)
-            {
                 return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: No se recibieron datos válidos." });
-            }
 
             bool registrado = MedicosData.RegistrarMedico(oMedicos);
 
             if (registrado)
-            {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Medico registrado correctamente." });
-            }
+                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Médico registrado correctamente." });
             else
-            {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar el Medico." });
-            }
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar el médico." });
         }
 
-        // PUT api/<controller>/5
-        public void Put(int id, [FromBody] string value)
+        [HttpPut]
+        [Route("api/Medicos/{id}")]
+        public HttpResponseMessage Put(int id, [FromBody] Medicos oMedicos)
         {
-        }
+            if (oMedicos == null || id <= 0)
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: Datos inválidos." });
 
-        // DELETE api/<controller>/5
-        public void Delete(int id)
-        {
+            oMedicos.Id = id;
+            bool actualizado = MedicosData.ActualizarMedico(oMedicos);
+
+            if (actualizado)
+                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Médico actualizado correctamente." });
+            else
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar el médico." });
         }
     }
 }

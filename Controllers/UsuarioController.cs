@@ -19,11 +19,26 @@ namespace App_Citas_medicas_backend.Controllers
             return UsuarioData.ListarUsuarios();
         }
 
-        // GET api/<controller>/5
-        public List<Usuario> Get(string id)
+        // GET api/Usuario/{id}
+        [HttpGet]
+        [Route("api/Usuario/{id}")]
+        public HttpResponseMessage ObtenerUsuario(string id)
         {
-            return UsuarioData.ObtenerUsuario(id);
+            if (string.IsNullOrEmpty(id))
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: ID inválido." });
+            }
+
+            var usuarios = UsuarioData.ObtenerUsuario(id);
+
+            if (usuarios == null || usuarios.Count == 0)
+            {
+                return Request.CreateResponse(HttpStatusCode.NotFound, new { mensaje = "Usuario no encontrado." });
+            }
+
+            return Request.CreateResponse(HttpStatusCode.OK, usuarios);
         }
+
 
 
 
@@ -53,21 +68,31 @@ namespace App_Citas_medicas_backend.Controllers
 
 
         // PUT api/<controller>/5
-       public bool Put([FromBody] Usuario oUsuario)
+        [HttpPut]
+        [Route("api/Usuario/{id}")]
+        public HttpResponseMessage ActualizarUsuario(int id, [FromBody] Usuario oUsuario)
         {
-            return UsuarioData.ActualizarUsuario(oUsuario);
+            if (oUsuario == null || id <= 0)
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: Datos inválidos." });
+            }
+
+            oUsuario.Id = id; // Aseguramos que el ID del usuario coincide con el proporcionado en la ruta.
+            bool actualizado = UsuarioData.ActualizarUsuario(oUsuario);
+
+            if (actualizado)
+            {
+                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario actualizado correctamente." });
+            }
+            else
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar el usuario." });
+            }
         }
 
 
-        // DELETE api/<controller>/5
-
-        public bool Delete(string id)
-        {
-            return UsuarioData.EliminarUsuario(id);
-        }
 
 
-       
 
         private IHttpActionResult BadRequest(object value)
         {
