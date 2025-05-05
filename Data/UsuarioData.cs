@@ -18,8 +18,8 @@ namespace App_Citas_medicas_backend.Data
             {
                 ConexionBD objEst = new ConexionBD();
 
-                string sentencia = $"EXEC RegistrarUsuario '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
-                                   $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}';";
+                string sentencia = $"EXEC RegistrarUsuario '{oUsuario.Cedula}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
+                                   $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}','{oUsuario.Estatus}';";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia); // 👀 Ver qué consulta se ejecuta
 
@@ -43,26 +43,35 @@ namespace App_Citas_medicas_backend.Data
 
         public static bool ActualizarUsuario(Usuario oUsuario)
         {
-            
-           
+            try
+            {
                 ConexionBD objEst = new ConexionBD();
-                string sentencia;
 
-               sentencia = $"EXEC ActualizarUsuario '{oUsuario.Id}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
-                                   $"'{oUsuario.Email}', '{oUsuario.Rol}' , '{oUsuario.Contraseña}',  '{oUsuario.EspecialidadId}';";
+                // Incluye el ID del usuario en la consulta SQL
+                string sentencia = $"EXEC ActualizarUsuario '{oUsuario.Id}', '{oUsuario.Cedula}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
+                                   $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}', '{(oUsuario.Estatus ? 1 : 0)}';";
 
-               if (!objEst.EjecutarSentencia(sentencia, false))
+                Console.WriteLine("Ejecutando SQL: " + sentencia); // 👀 Ver qué consulta se ejecuta
+
+                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+
+                if (!resultado)
                 {
-                    objEst = null;
-                    return false;
+                    Console.WriteLine("Error: La ejecución de la sentencia SQL falló.");
                 }
-               else
-                {
-                    objEst = null;
-                    return true;
 
-                }
+                objEst = null;
+                return resultado;
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error en ActualizarUsuario: " + ex.Message);
+                return false;
+            }
+        }
+
+
+
 
 
         public static List<Usuario> ListarUsuarios()
@@ -105,11 +114,16 @@ namespace App_Citas_medicas_backend.Data
                 {
                     listarUsuarios.Add(new Usuario()
                     {
-                        Id = Convert.ToInt32(dr["Id"]),
-                        Nombre = dr["Nombre"].ToString(),
-                        Apellido = dr["Apellido"].ToString(),
-                        Email = dr["Email"].ToString(),
-                        Rol = dr["Rol"].ToString()
+                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                        Nombre = dr["Nombre"]?.ToString(),
+                        Apellido = dr["Apellido"]?.ToString(),
+                        Email = dr["Email"]?.ToString(),
+                        Contraseña = dr["Contraseña"]?.ToString(),
+                        Rol = dr["Rol"]?.ToString(),
+                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : 0,
+                        Estatus = dr["Estatus"] != DBNull.Value ? (Convert.ToInt32(dr["Estatus"]) == 1) : false,
+                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
                     });
                 }
                 dr.Close();
