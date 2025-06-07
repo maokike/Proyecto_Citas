@@ -45,22 +45,40 @@ namespace App_Citas_medicas_backend.Controllers
 
         // POST api/<controller>
         [HttpPost]
-        public HttpResponseMessage Post([FromBody] Usuario oUsuario)
+        public IHttpActionResult Post([FromBody] Usuario oUsuario)
         {
             if (oUsuario == null)
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: No se recibieron datos válidos." });
+                // Si los datos del usuario son nulos, devuelve un Bad Request
+                return BadRequest(); // HttpStatusCode 400
             }
 
-            bool registrado = UsuarioData.RegistrarUsuario(oUsuario);
+            try
+            {
+                // Llama al método RegistrarUsuario de tu capa de datos
+                bool registrado = UsuarioData.RegistrarUsuario(oUsuario);
 
-            if (registrado)
-            {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario ok"});
+                if (registrado)
+                {
+                    // Si el registro fue exitoso en la capa de datos, devuelve 200 OK
+                    // El frontend interpretará esto como éxito y mostrará su mensaje.
+                    return Ok(); // HttpStatusCode 200
+                }
+                else
+                {
+                    // Si UsuarioData.RegistrarUsuario devuelve 'false' (ej. usuario ya existe, validación interna fallida)
+                    // Devolvemos un BadRequest o Conflict (409) si la lógica del backend es que el usuario ya existe.
+                    // Para simplificar al máximo, podemos devolver Bad Request o InternalServerError si la inserción no ocurrió.
+                    // Aquí, asumiremos que 'false' significa que la base de datos no insertó por una razón lógica.
+                    return BadRequest(); // HttpStatusCode 400
+                }
             }
-            else
+            catch (Exception ex)
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar." });
+                // Captura cualquier excepción durante el proceso (ej. error de base de datos)
+                Console.WriteLine($"Error durante el registro de usuario en el controlador: {ex.Message}");
+                // Devuelve 500 Internal Server Error al frontend
+                return InternalServerError(ex); // HttpStatusCode 500
             }
         }
 
