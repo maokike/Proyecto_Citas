@@ -9,9 +9,7 @@ namespace App_Citas_medicas_backend
     {
         public static void Register(HttpConfiguration config)
         {
-            // Configuración y servicios de Web API
-
-            // Rutas de Web API
+            // Configuración de rutas de Web API
             config.MapHttpAttributeRoutes();
 
             config.Routes.MapHttpRoute(

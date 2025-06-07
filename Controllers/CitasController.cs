@@ -1,101 +1,123 @@
 ﻿using App_Citas_medicas_backend.Data;
 using App_Citas_medicas_backend.Models;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
+using System;
 using System.Web.Http;
 
 namespace App_Citas_medicas_backend.Controllers
 {
+    [RoutePrefix("api/citas")]
     public class CitasController : ApiController
     {
-        // GET api/<controller>
-        [HttpGet]
-        public List<Cita> Get()
-        {
-            return CitasData.ListarCitas();
-        }
-
-        // GET api/<controller>/5
-        [HttpGet]
-        [Route("api/Citas/{id}")]
-        public HttpResponseMessage ConsultarCita(int id)
-        {
-            var cita = CitasData.ConsultarCita(id);
-
-            if (cita == null)
-            {
-                return Request.CreateResponse(HttpStatusCode.NotFound, new { mensaje = "Cita no encontrada." });
-            }
-
-            return Request.CreateResponse(HttpStatusCode.OK, cita);
-        }
-
-        // POST api/<controller>
         [HttpPost]
-        public HttpResponseMessage Post([FromBody] Cita oCita)
+        [Route("registrar")]
+        public IHttpActionResult RegistrarCita([FromBody] Cita cita)
         {
-            if (oCita == null)
-            {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: No se recibieron datos válidos." });
-            }
+            if (cita == null)
+                return BadRequest("La información de la cita es inválida.");
 
-            bool registrado = CitasData.RegistrarCita(oCita);
-
-            if (registrado)
+            try
             {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Cita registrada correctamente." });
+                bool resultado = CitasData.RegistrarCita(cita);
+                if (resultado)
+                    return Ok("Cita registrada correctamente.");
+                else
+                    return InternalServerError(new Exception("No se pudo registrar la cita."));
             }
-            else
+            catch (Exception ex)
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar la cita." });
+                return InternalServerError(ex);
             }
         }
+        public static void Register(HttpConfiguration config)
+        {
+            // Habilitar rutas por atributos
+            config.MapHttpAttributeRoutes();
 
-        // PUT api/<controller>/5
+            // Configuración de la ruta predeterminada
+            config.Routes.MapHttpRoute(
+                name: "DefaultApi",
+                routeTemplate: "api/{controller}/{id}",
+                defaults: new { id = RouteParameter.Optional }
+            );
+        }
+
         [HttpPut]
-        [Route("api/Citas/{id}")]
-        public HttpResponseMessage ActualizarCita(int id, [FromBody] Cita oCita)
+        [Route("actualizar")]
+        public IHttpActionResult ActualizarCita([FromBody] Cita cita)
         {
-            if (oCita == null || id <= 0)
-            {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: Datos inválidos." });
-            }
+            if (cita == null)
+                return BadRequest("La información de la cita es inválida.");
 
-            oCita.Id = id;
-            bool actualizado = CitasData.ActualizarCita(oCita);
-
-            if (actualizado)
+            try
             {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Cita actualizada correctamente." });
+                bool resultado = CitasData.ActualizarCita(cita);
+                if (resultado)
+                    return Ok("Cita actualizada correctamente.");
+                else
+                    return InternalServerError(new Exception("No se pudo actualizar la cita."));
             }
-            else
+            catch (Exception ex)
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar la cita." });
+                return InternalServerError(ex);
             }
         }
 
-        // DELETE api/<controller>/5
-        [HttpDelete]
-        [Route("api/Citas/{id}")]
-        public HttpResponseMessage EliminarCita(int id)
+        [HttpGet]
+        [Route("listar")]
+        public IHttpActionResult ListarCita()
+        {
+            try
+            {
+                var citas = CitasData.ListarCita();
+                return Ok(citas);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
+        [HttpGet]
+        [Route("obtener/{id}")]
+        public IHttpActionResult ObtenerCita(int id)
         {
             if (id <= 0)
-            {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: ID inválido." });
-            }
+                return BadRequest("El ID de la cita debe ser mayor a 0.");
 
-            bool eliminado = CitasData.EliminarCita(id);
+            try
+            {
+                var cita = CitasData.ObtenerCita(id);
+                if (cita == null)
+                    return NotFound();
 
-            if (eliminado)
-            {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Cita eliminada correctamente." });
+                return Ok(cita);
             }
-            else
+            catch (Exception ex)
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al eliminar la cita." });
+                return InternalServerError(ex);
             }
         }
+
+
+
+        [HttpDelete]
+        [Route("eliminar/{id}")]
+        public IHttpActionResult EliminarCita(int id)
+        {
+            try
+            {
+                bool resultado = CitasData.EliminarCita(id);
+                if (resultado)
+                    return Ok("Cita eliminada correctamente.");
+                else
+                    return InternalServerError(new Exception("No se pudo eliminar la cita."));
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
+
     }
 }
-

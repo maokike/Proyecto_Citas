@@ -293,5 +293,10 @@ namespace App_Citas_medicas_backend.Data
                 CerrarConexion();
             }
         }
+
+        internal void LimpiarParametros()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -19,7 +19,7 @@ namespace App_Citas_medicas_backend.Data
                 ConexionBD objEst = new ConexionBD();
 
                 string sentencia = $"EXEC RegistrarUsuario '{oUsuario.Cedula}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
-                                   $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}','{oUsuario.Estatus}';";
+                                   $"'{oUsuario.Email}', '{oUsuario.Contrasena}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}','{oUsuario.Estatus}';";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia); // 👀 Ver qué consulta se ejecuta
 
@@ -49,7 +49,7 @@ namespace App_Citas_medicas_backend.Data
 
                 // Incluye el ID del usuario en la consulta SQL
                 string sentencia = $"EXEC ActualizarUsuario '{oUsuario.Id}', '{oUsuario.Cedula}', '{oUsuario.Nombre}', '{oUsuario.Apellido}', " +
-                                   $"'{oUsuario.Email}', '{oUsuario.Contraseña}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}', '{(oUsuario.Estatus ? 1 : 0)}';";
+                                   $"'{oUsuario.Email}', '{oUsuario.Contrasena}', '{oUsuario.Rol}', '{oUsuario.EspecialidadId}', '{(oUsuario.Estatus ? 1 : 0)}';";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia); // 👀 Ver qué consulta se ejecuta
 
@@ -119,7 +119,7 @@ namespace App_Citas_medicas_backend.Data
                         Nombre = dr["Nombre"]?.ToString(),
                         Apellido = dr["Apellido"]?.ToString(),
                         Email = dr["Email"]?.ToString(),
-                        Contraseña = dr["Contraseña"]?.ToString(),
+                        Contrasena = dr["Contraseña"]?.ToString(),
                         Rol = dr["Rol"]?.ToString(),
                         EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : 0,
                         Estatus = dr["Estatus"] != DBNull.Value ? (Convert.ToInt32(dr["Estatus"]) == 1) : false,

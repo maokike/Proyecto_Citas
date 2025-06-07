@@ -1,27 +1,41 @@
-﻿using App_Citas_medicas_backend.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
+using App_Citas_medicas_backend.Models;
 
 namespace App_Citas_medicas_backend.Data
 {
-    public class CitasData
+    public static class CitasData
     {
-        public static bool RegistrarCita(Cita oCita)
+        public static bool RegistrarCita(Cita cita)
         {
             try
             {
-                ConexionBD objEst = new ConexionBD();
+                ConexionBD conexion = new ConexionBD();
 
-                string sentencia = $"EXEC RegistrarCita '{oCita.PacienteId}', '{oCita.MedicoId}', '{oCita.EspecialidadId}', " +
-                   $"'{oCita.Fecha:yyyy-MM-dd}', '{oCita.Hora}', '{oCita.Estado}'";
+                // Construcción de la sentencia SQL para llamar al procedimiento almacenado
+                string sentencia = $"EXEC RegistrarCita " +
+                                   $"'{cita.PacienteId}', " +
+                                   $"'{cita.MedicoId}', " +
+                                   $"'{cita.EspecialidadId}', " +
+                                   $"'{cita.Fecha:yyyy-MM-dd}', " +
+                                   $"'{cita.Hora}', " +
+                                   $"'{cita.Estado}'";
+
 
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia);
 
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                // Ejecutar la sentencia
+                bool resultado = conexion.EjecutarSentencia(sentencia, false);
 
-                objEst = null;
+                if (!resultado)
+                {
+                    Console.WriteLine("Error: La ejecución de la sentencia SQL falló.");
+                }
+
+                conexion = null;
                 return resultado;
             }
             catch (Exception ex)
@@ -31,20 +45,36 @@ namespace App_Citas_medicas_backend.Data
             }
         }
 
-        public static bool ActualizarCita(Cita oCita)
+
+
+
+        public static bool ActualizarCita(Cita cita)
         {
             try
             {
-                ConexionBD objEst = new ConexionBD();
+                ConexionBD conexion = new ConexionBD();
 
-                string sentencia = $"EXEC ActualizarCita '{oCita.Id}', '{oCita.PacienteId}', '{oCita.MedicoId}', '{oCita.EspecialidadId}', " +
-                                   $"'{oCita.Fecha:yyyy-MM-dd}', '{oCita.Hora}', '{oCita.Estado}'";
+                // Construcción de la sentencia SQL para llamar al procedimiento almacenado
+                string sentencia = $"EXEC ActualizarCita " +
+                                   $"'{cita.CitaId}', " +
+                                   $"'{cita.PacienteId}', " +
+                                   $"'{cita.MedicoId}', " +
+                                   $"'{cita.EspecialidadId}', " +
+                                   $"'{cita.Fecha:yyyy-MM-dd}', " +
+                                   $"'{cita.Hora}', " +
+                                   $"'{cita.Estado}'";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia);
 
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                // Ejecutar la sentencia
+                bool resultado = conexion.EjecutarSentencia(sentencia, false);
 
-                objEst = null;
+                if (!resultado)
+                {
+                    Console.WriteLine("Error: La ejecución de la sentencia SQL falló.");
+                }
+
+                conexion = null;
                 return resultado;
             }
             catch (Exception ex)
@@ -54,50 +84,88 @@ namespace App_Citas_medicas_backend.Data
             }
         }
 
-        public static Cita ConsultarCita(int id)
+        
+        public static List<Cita> ListarCita()
+         {
+        List<Cita> citas = new List<Cita>();
+        try
         {
+            ConexionBD conexion = new ConexionBD();
+            string sentencia = "EXEC ListarCitas"; // Procedimiento almacenado para listar citas
+
+            if (conexion.Consultar(sentencia, false))
+            {
+                SqlDataReader reader = conexion.Reader;
+                while (reader.Read())
+                {
+                    citas.Add(new Cita
+                    {
+                        CitaId = Convert.ToInt32(reader["Id"]),
+                        PacienteId = Convert.ToInt32(reader["PacienteId"]),
+                        MedicoId = Convert.ToInt32(reader["MedicoId"]),
+                        EspecialidadId = Convert.ToInt32(reader["EspecialidadId"]),
+                        Fecha = Convert.ToDateTime(reader["Fecha"]),
+                        Hora = (TimeSpan)reader["Hora"],
+                        Estado = reader["Estado"].ToString()
+                    });
+                }
+                reader.Close();
+            }
+            conexion = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error en ListarCita: " + ex.Message);
+        }
+        return citas;
+         }
+
+        
+
+        public static Cita ObtenerCita(int id)
+        {
+            Cita cita = null;
             try
             {
-                ConexionBD objEst = new ConexionBD();
-                string sentencia = $"EXEC ConsultarCita '{id}'";
+                ConexionBD conexion = new ConexionBD();
+                string sentencia = $"EXEC ObtenerCita '{id}'"; // Procedimiento almacenado para obtener una cita por ID
 
-                if (objEst.Consultar(sentencia, false))
+                if (conexion.Consultar(sentencia, false))
                 {
-                    SqlDataReader dr = objEst.Reader;
-                    if (dr.Read())
+                    SqlDataReader reader = conexion.Reader;
+                    if (reader.Read())
                     {
-                        return new Cita()
+                        cita = new Cita
                         {
-                            Id = Convert.ToInt32(dr["Id"]),
-                            PacienteId = Convert.ToInt32(dr["PacienteId"]),
-                            MedicoId = Convert.ToInt32(dr["MedicoId"]),
-                            EspecialidadId = Convert.ToInt32(dr["EspecialidadId"]),
-                            Fecha = Convert.ToDateTime(dr["Fecha"]),
-                            Hora = TimeSpan.Parse(dr["Hora"].ToString()),
-                            Estado = dr["Estado"].ToString()
+                            CitaId = Convert.ToInt32(reader["Id"]),
+                            PacienteId = Convert.ToInt32(reader["PacienteId"]),
+                            MedicoId = Convert.ToInt32(reader["MedicoId"]),
+                            EspecialidadId = Convert.ToInt32(reader["EspecialidadId"]),
+                            Fecha = Convert.ToDateTime(reader["Fecha"]),
+                            Hora = (TimeSpan)reader["Hora"],
+                            Estado = reader["Estado"].ToString()
                         };
                     }
-                    dr.Close();
+                    reader.Close();
                 }
-                return null;
+                conexion = null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error en ConsultarCita: " + ex.Message);
-                return null;
+                Console.WriteLine("Error en ObtenerCita: " + ex.Message);
             }
+            return cita;
         }
 
         public static bool EliminarCita(int id)
         {
             try
             {
-                ConexionBD objEst = new ConexionBD();
-                string sentencia = $"EXEC EliminarCita '{id}'";
+                ConexionBD conexion = new ConexionBD();
+                string sentencia = $"EXEC EliminarCita '{id}'"; // Procedimiento almacenado para eliminar una cita por ID
 
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
-
-                objEst = null;
+                bool resultado = conexion.EjecutarSentencia(sentencia, false);
+                conexion = null;
                 return resultado;
             }
             catch (Exception ex)
@@ -107,33 +175,8 @@ namespace App_Citas_medicas_backend.Data
             }
         }
 
-        public static List<Cita> ListarCitas()
-        {
-            List<Cita> listarCitas = new List<Cita>();
-            ConexionBD objEst = new ConexionBD();
-            string sentencia = "EXEC ListarCitas";
-
-            if (objEst.Consultar(sentencia, false))
-            {
-                SqlDataReader dr = objEst.Reader;
-                while (dr.Read())
-                {
-                    listarCitas.Add(new Cita()
-                    {
-                        Id = Convert.ToInt32(dr["Id"]),
-                        PacienteId = Convert.ToInt32(dr["PacienteId"]),
-                        MedicoId = Convert.ToInt32(dr["MedicoId"]),
-                        EspecialidadId = Convert.ToInt32(dr["EspecialidadId"]),
-                        Fecha = Convert.ToDateTime(dr["Fecha"]),
-                        Hora = TimeSpan.Parse(dr["Hora"].ToString()),
-                        Estado = dr["Estado"].ToString()
-                    });
-                }
-                dr.Close();
-            }
-
-            return listarCitas;
-        }
     }
+
 }
+
 

@@ -13,12 +13,31 @@ namespace App_Citas_medicas_backend.Data
             {
                 ConexionBD objEst = new ConexionBD();
 
-                string sentencia = $"EXEC RegistrarMedico '{oMedicos.Cedula}', '{oMedicos.Nombre}', '{oMedicos.Apellido}', '{oMedicos.EspecialidadId}', " +
-                                   $"'{oMedicos.Email}', '{oMedicos.Contraseña}', '{(oMedicos.Estatus ? 1 : 0)}', '{oMedicos.FechaRegistro:yyyy-MM-dd HH:mm:ss}'";
+                // Manejo de FechaRegistro para permitir valores nulos
+                string fechaRegistro = oMedicos.FechaRegistro == DateTime.MinValue
+                    ? "NULL"
+                    : $"'{oMedicos.FechaRegistro:yyyy-MM-dd HH:mm:ss}'";
+
+                // Construcción de la sentencia SQL
+                string sentencia = $"EXEC RegistrarMedico " +
+                                   $"'{oMedicos.Cedula}', " +
+                                   $"'{oMedicos.Nombre}', " +
+                                   $"'{oMedicos.Apellido}', " +
+                                   $"'{oMedicos.EspecialidadId}', " +
+                                   $"'{oMedicos.Email}', " +
+                                   $"'{oMedicos.Contrasena}', " +
+                                   $"'{(oMedicos.Estatus ? 1 : 0)}', " +
+                                   $"{fechaRegistro}";
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia);
 
+                // Ejecución de la sentencia
                 bool resultado = objEst.EjecutarSentencia(sentencia, false);
+
+                if (!resultado)
+                {
+                    Console.WriteLine("Error: La ejecución de la sentencia SQL falló.");
+                }
 
                 objEst = null;
                 return resultado;
@@ -30,16 +49,26 @@ namespace App_Citas_medicas_backend.Data
             }
         }
 
+
+
         public static bool ActualizarMedico(Medicos oMedicos)
         {
             try
             {
                 ConexionBD objEst = new ConexionBD();
 
-                string sentencia = $"EXEC ActualizarMedico '{oMedicos.Id}', '{oMedicos.Nombre}', '{oMedicos.Apellido}', '{oMedicos.EspecialidadId}', '{oMedicos.Email}'";
+                // Construcción de la sentencia SQL con solo los campos modificables
+                string sentencia = $"EXEC ActualizarMedico " +
+                                   $"'{oMedicos.Id}', " + // Se usa solo para identificar el registro
+                                   $"'{oMedicos.Nombre}', " +
+                                   $"'{oMedicos.Apellido}', " +
+                                   $"'{oMedicos.EspecialidadId}', " +
+                                   $"'{oMedicos.Email}', " +
+                                   $"'{(oMedicos.Estatus ? 1 : 0)}'"; // Si `Estatus` es modificable
 
                 Console.WriteLine("Ejecutando SQL: " + sentencia);
 
+                // Ejecución de la sentencia
                 bool resultado = objEst.EjecutarSentencia(sentencia, false);
 
                 objEst = null;
@@ -51,6 +80,7 @@ namespace App_Citas_medicas_backend.Data
                 return false;
             }
         }
+
 
         public static Medicos ConsultarMedico(int id)
         {
