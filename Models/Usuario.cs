@@ -14,10 +14,8 @@ namespace App_Citas_medicas_backend.Models
         public string Email { get; set; }
         public string Contrasena { get; set; }
         public string Rol { get; set; }
-        public int? EspecialidadId { get; set; }
+        public int? EspecialidadId { get; set; } // int? es crucial para permitir NULL
         public bool Estatus { get; set; }
         public DateTime FechaRegistro { get; set; }
-
-
     }
 }

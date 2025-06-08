@@ -2,17 +2,16 @@
 using App_Citas_medicas_backend.Models;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
+using System.Data.SqlClient; // Para capturar SqlException
+using System.Net; // Para HttpStatusCode
+using System.Net.Http; // Para HttpResponseMessage
+using System.Web.Http; // Para ApiController, HttpGet, HttpPost, HttpPut, HttpDelete, Route
 
 namespace App_Citas_medicas_backend.Controllers
 {
-    
     public class UsuarioController : ApiController
     {
-        // GET api/<controller>
+        // GET api/Usuario
         [HttpGet]
         public List<Usuario> Get()
         {
@@ -39,53 +38,49 @@ namespace App_Citas_medicas_backend.Controllers
             return Request.CreateResponse(HttpStatusCode.OK, usuarios);
         }
 
-
-
-
-
-        // POST api/<controller>
+        // POST api/Usuario
         [HttpPost]
         public IHttpActionResult Post([FromBody] Usuario oUsuario)
         {
             if (oUsuario == null)
             {
-                // Si los datos del usuario son nulos, devuelve un Bad Request
-                return BadRequest(); // HttpStatusCode 400
+                return BadRequest("Datos de usuario no proporcionados.");
             }
 
             try
             {
-                // Llama al método RegistrarUsuario de tu capa de datos
+                // Validación en el controlador: si es médico, EspecialidadId es obligatorio
+                if (oUsuario.Rol?.ToLower() == "medico" && !oUsuario.EspecialidadId.HasValue)
+                {
+                    return BadRequest("Para el rol 'Medico', la EspecialidadId es obligatoria.");
+                }
+
                 bool registrado = UsuarioData.RegistrarUsuario(oUsuario);
 
                 if (registrado)
                 {
-                    // Si el registro fue exitoso en la capa de datos, devuelve 200 OK
-                    // El frontend interpretará esto como éxito y mostrará su mensaje.
-                    return Ok(); // HttpStatusCode 200
+                    return Ok(new { mensaje = "Usuario registrado correctamente." });
                 }
                 else
                 {
-                    // Si UsuarioData.RegistrarUsuario devuelve 'false' (ej. usuario ya existe, validación interna fallida)
-                    // Devolvemos un BadRequest o Conflict (409) si la lógica del backend es que el usuario ya existe.
-                    // Para simplificar al máximo, podemos devolver Bad Request o InternalServerError si la inserción no ocurrió.
-                    // Aquí, asumiremos que 'false' significa que la base de datos no insertó por una razón lógica.
-                    return BadRequest(); // HttpStatusCode 400
+                    // Si la capa de datos devuelve false sin lanzar excepción
+                    return BadRequest("No se pudo registrar el usuario. Verifique los datos o si ya existe.");
                 }
             }
-            catch (Exception ex)
+            catch (SqlException sqlEx) // Captura excepciones específicas de SQL Server
             {
-                // Captura cualquier excepción durante el proceso (ej. error de base de datos)
-                Console.WriteLine($"Error durante el registro de usuario en el controlador: {ex.Message}");
-                // Devuelve 500 Internal Server Error al frontend
-                return InternalServerError(ex); // HttpStatusCode 500
+                Console.WriteLine($"Error SQL al registrar usuario en el controlador: {sqlEx.Message}");
+                // Devuelve un mensaje de error detallado de SQL Server
+                return InternalServerError(new Exception($"Error de base de datos al registrar usuario: {sqlEx.Message}"));
+            }
+            catch (Exception ex) // Captura cualquier otra excepción
+            {
+                Console.WriteLine($"Error general al registrar usuario en el controlador: {ex.Message}");
+                return InternalServerError(ex);
             }
         }
 
-
-
-
-        // PUT api/<controller>/5
+        // PUT api/Usuario/{id}
         [HttpPut]
         [Route("api/Usuario/{id}")]
         public HttpResponseMessage ActualizarUsuario(int id, [FromBody] Usuario oUsuario)
@@ -95,7 +90,14 @@ namespace App_Citas_medicas_backend.Controllers
                 return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: Datos inválidos." });
             }
 
-            oUsuario.Id = id; // Aseguramos que el ID del usuario coincide con el proporcionado en la ruta.
+            oUsuario.Id = id; // Asegura que el ID del usuario coincide con el proporcionado en la ruta.
+
+            // Validación en el controlador: si es médico, EspecialidadId es obligatorio
+            if (oUsuario.Rol?.ToLower() == "medico" && !oUsuario.EspecialidadId.HasValue)
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Para el rol 'Medico', la EspecialidadId es obligatoria." });
+            }
+
             bool actualizado = UsuarioData.ActualizarUsuario(oUsuario);
 
             if (actualizado)
@@ -104,20 +106,30 @@ namespace App_Citas_medicas_backend.Controllers
             }
             else
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar el usuario." });
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar el usuario. Verifique los datos." });
             }
         }
 
-
-
-
-
-        private IHttpActionResult BadRequest(object value)
+        // DELETE api/Usuario/{id}
+        [HttpDelete]
+        [Route("api/Usuario/{id}")]
+        public HttpResponseMessage EliminarUsuario(string id)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(id))
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: ID de usuario inválido." });
+            }
+
+            bool eliminado = UsuarioData.EliminarUsuario(id);
+
+            if (eliminado)
+            {
+                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario eliminado correctamente." });
+            }
+            else
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al eliminar el usuario o usuario no encontrado." });
+            }
         }
-
     }
-
-
 }

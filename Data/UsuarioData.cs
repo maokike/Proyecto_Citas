@@ -2,67 +2,102 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient; // Asegúrate de que este using esté presente para SqlDataReader
+using System.Data.SqlClient; // Asegúrate de que este using esté presente
 using System.Linq;
 using System.Web;
-// using System.Web.UI.WebControls; // Esta línea probablemente no es necesaria para un Web API, puedes quitarla si no la usas.
 
 
 namespace App_Citas_medicas_backend.Data
 {
     public class UsuarioData
     {
+        // Nota: Asumo que 'ConexionBD' es una clase que ya tienes y maneja la conexión a la DB.
+        // Asegúrate de que sus métodos 'EjecutarSentencia' y 'Consultar' funcionan correctamente
+        // y que 'EjecutarSentencia' devuelva 'false' si la operación no fue exitosa.
+
+        // Método centralizado para ejecutar sentencias y obtener resultados de error de SQL Server
+        // Retorna true si la sentencia se ejecutó sin lanzar excepción de SQL Server, false en caso contrario
+        private static bool EjecutarSentenciaConDetalle(ConexionBD objEst, string sentencia)
+        {
+            try
+            {
+                // objEst.ClearErrors(); // Si tu clase ConexionBD tiene un método para esto
+
+                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+
+                // Si tu objEst.EjecutarSentencia expone alguna propiedad de error de SQL Server
+                // if (objEst.HasErrors) {
+                //    Console.WriteLine($"Error de SQL Server detectado: {objEst.LastError.Message}");
+                //    return false;
+                // }
+
+                return resultado;
+            }
+            catch (SqlException sqlEx) // Capturar excepciones específicas de SQL Server
+            {
+                Console.WriteLine($"ERROR SQL al ejecutar sentencia: {sentencia}");
+                Console.WriteLine($"Mensaje SQL: {sqlEx.Message}");
+                Console.WriteLine($"Número de Error SQL: {sqlEx.Number}");
+                Console.WriteLine($"Línea: {sqlEx.LineNumber}");
+                throw; // Relanzar la excepción para que sea capturada por el catch superior (en el Controller)
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR GENERAL al ejecutar sentencia: {sentencia}");
+                Console.WriteLine($"Mensaje General: {ex.Message}");
+                throw; // Relanzar la excepción
+            }
+        }
+
+
         public static bool RegistrarUsuario(Usuario oUsuario)
         {
             try
             {
                 ConexionBD objEst = new ConexionBD();
 
-                // **¡CORRECCIÓN CLAVE AQUÍ: Manejo explícito de NULL para EspecialidadId!**
                 string especialidadIdParam;
-                if (oUsuario.EspecialidadId.HasValue) // Si EspecialidadId tiene un valor (no es null)
+                if (oUsuario.EspecialidadId.HasValue)
                 {
-                    // Lo convertimos a string y lo encerramos en comillas simples para la sentencia SQL
-                    especialidadIdParam = $"'{oUsuario.EspecialidadId.Value}'";
+                    // ¡Importante! Eliminar comillas para parámetros INT
+                    especialidadIdParam = $"{oUsuario.EspecialidadId.Value}";
                 }
-                else // Si EspecialidadId es null
+                else
                 {
-                    // Enviamos la palabra NULL (sin comillas)
                     especialidadIdParam = "NULL";
                 }
 
-                // Manejo de Estatus: Convertir bool a 1 o 0 para la sentencia SQL
                 string estatusParam = oUsuario.Estatus ? "1" : "0";
 
-
-                // Construir la sentencia SQL con el manejo de NULL para EspecialidadId y Estatus
                 string sentencia = $"EXEC RegistrarUsuario " +
-                                   $"'{oUsuario.Cedula}', " +
+                                   $"{oUsuario.Cedula}, " + // QUITAR COMILLAS SIMPLES
                                    $"'{oUsuario.Nombre}', " +
                                    $"'{oUsuario.Apellido}', " +
                                    $"'{oUsuario.Email}', " +
                                    $"'{oUsuario.Contrasena}', " +
                                    $"'{oUsuario.Rol}', " +
-                                   $"{especialidadIdParam}," + // ¡Aquí se usa la cadena ya formateada!
-                                   $"{estatusParam};";         // ¡Aquí se usa la cadena ya formateada!
+                                   $"{especialidadIdParam}," + // QUITAR COMILLAS SIMPLES si tiene valor
+                                   $"{estatusParam};"; // QUITAR COMILLAS SIMPLES
 
-                Console.WriteLine("Ejecutando SQL (RegistrarUsuario): " + sentencia); // 👀 Ver qué consulta se ejecuta
+                Console.WriteLine("Ejecutando SQL (RegistrarUsuario): " + sentencia);
 
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                // Llamada correcta al método estático EjecutarSentenciaConDetalle
+                bool resultado = UsuarioData.EjecutarSentenciaConDetalle(objEst, sentencia);
 
                 if (!resultado)
                 {
-                    Console.WriteLine("Error en objEst.EjecutarSentencia para RegistrarUsuario: La ejecución de la sentencia SQL falló.");
+                    Console.WriteLine("Advertencia: objEst.EjecutarSentencia para RegistrarUsuario devolvió false. Posible fallo silencioso.");
                 }
 
-                objEst = null;
+                // objEst = null; // No es estrictamente necesario, el recolector de basura lo liberará.
                 return resultado;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error en RegistrarUsuario (UsuarioData): " + ex.Message);
-                // Si la excepción no es capturada por objEst.EjecutarSentencia, la capturamos aquí
-                return false;
+                Console.WriteLine("Error crítico en RegistrarUsuario (UsuarioData): " + ex.Message);
+                // Aquí, si quieres que el controlador reciba el error, debes relanzarlo.
+                // Si devuelves false, el controlador recibirá un Bad Request genérico.
+                throw; // Relanzar para que el controlador lo capture y devuelva un 500 o Bad Request específico.
             }
         }
 
@@ -73,53 +108,48 @@ namespace App_Citas_medicas_backend.Data
             {
                 ConexionBD objEst = new ConexionBD();
 
-                // **¡CORRECCIÓN CLAVE AQUÍ: Manejo explícito de NULL para EspecialidadId en ActualizarUsuario!**
                 string especialidadIdParam;
                 if (oUsuario.EspecialidadId.HasValue)
                 {
-                    especialidadIdParam = $"'{oUsuario.EspecialidadId.Value}'";
+                    // ¡Importante! Eliminar comillas para parámetros INT
+                    especialidadIdParam = $"{oUsuario.EspecialidadId.Value}";
                 }
                 else
                 {
                     especialidadIdParam = "NULL";
                 }
 
-                // Manejo de Estatus para ActualizarUsuario
                 string estatusParam = oUsuario.Estatus ? "1" : "0";
 
-
-                // Incluye el ID del usuario en la consulta SQL
                 string sentencia = $"EXEC ActualizarUsuario " +
-                                   $"'{oUsuario.Id}', " +
-                                   $"'{oUsuario.Cedula}', " +
+                                   $"{oUsuario.Id}, " + // QUITAR COMILLAS SIMPLES
+                                   $"{oUsuario.Cedula}, " + // QUITAR COMILLAS SIMPLES
                                    $"'{oUsuario.Nombre}', " +
                                    $"'{oUsuario.Apellido}', " +
                                    $"'{oUsuario.Email}', " +
                                    $"'{oUsuario.Contrasena}', " +
-                                   $"'{oUsuario.Rol}', " + // Asumo que el parámetro en el SP se llama @Rol
-                                   $"{especialidadIdParam}," +
-                                   $"{estatusParam};";
+                                   $"'{oUsuario.Rol}', " + // Aquí Rol se mapea a @NuevoRol en el SP
+                                   $"{especialidadIdParam}," + // QUITAR COMILLAS SIMPLES si tiene valor
+                                   $"{estatusParam};"; // QUITAR COMILLAS SIMPLES
 
-                Console.WriteLine("Ejecutando SQL (ActualizarUsuario): " + sentencia); // 👀 Ver qué consulta se ejecuta
+                Console.WriteLine("Ejecutando SQL (ActualizarUsuario): " + sentencia);
 
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                bool resultado = UsuarioData.EjecutarSentenciaConDetalle(objEst, sentencia);
 
                 if (!resultado)
                 {
-                    Console.WriteLine("Error en objEst.EjecutarSentencia para ActualizarUsuario: La ejecución de la sentencia SQL falló.");
+                    Console.WriteLine("Advertencia: objEst.EjecutarSentencia para ActualizarUsuario devolvió false. Posible fallo silencioso.");
                 }
 
-                objEst = null;
+                // objEst = null;
                 return resultado;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error en ActualizarUsuario (UsuarioData): " + ex.Message);
-                return false;
+                Console.WriteLine("Error crítico en ActualizarUsuario (UsuarioData): " + ex.Message);
+                throw; // Relanzar para que el controlador lo capture
             }
         }
-
-        // ... (El resto de tus métodos ListarUsuarios, ObtenerUsuario, EliminarUsuario se mantienen igual) ...
 
         public static List<Usuario> ListarUsuarios()
         {
@@ -139,16 +169,17 @@ namespace App_Citas_medicas_backend.Data
                         Nombre = dr["Nombre"]?.ToString(),
                         Apellido = dr["Apellido"]?.ToString(),
                         Email = dr["Email"]?.ToString(),
-                        Contrasena = dr["Contrasena"]?.ToString(), // Corregido el nombre de columna si antes era 'Contraseña'
+                        Contrasena = dr["Contrasena"]?.ToString(),
                         Rol = dr["Rol"]?.ToString(),
-                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null, // Leer como int?
-                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false, // Convertir a bool
+                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
+                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
                         FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
                     });
                 }
                 dr.Close();
             }
 
+            // objEst = null;
             return listarUsuarios;
         }
 
@@ -171,9 +202,9 @@ namespace App_Citas_medicas_backend.Data
                         Nombre = dr["Nombre"]?.ToString(),
                         Apellido = dr["Apellido"]?.ToString(),
                         Email = dr["Email"]?.ToString(),
-                        Contrasena = dr["Contrasena"]?.ToString(), // Corregido el nombre de columna
+                        Contrasena = dr["Contrasena"]?.ToString(),
                         Rol = dr["Rol"]?.ToString(),
-                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null, // Leer como int?
+                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
                         Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
                         FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
                     });
@@ -181,6 +212,7 @@ namespace App_Citas_medicas_backend.Data
                 dr.Close();
             }
 
+            // objEst = null;
             return listarUsuarios;
         }
 
@@ -190,9 +222,8 @@ namespace App_Citas_medicas_backend.Data
             string sentencia;
             sentencia = "EXECUTE EliminarUsuario '" + id + "'";
 
-            // Corregido para que siempre devuelva un bool.
             bool resultado = objEst.EjecutarSentencia(sentencia, false);
-            objEst = null; // Liberar el objeto ConexionBD
+            // objEst = null;
             return resultado;
         }
     }
