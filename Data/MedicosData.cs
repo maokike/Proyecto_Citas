@@ -1,142 +1,184 @@
-﻿using App_Citas_medicas_backend.Models;
+﻿// App_Citas_medicas_backend\Data\MedicoData.cs
+using App_Citas_medicas_backend.Models;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
+using System.Linq; // Para usar .FirstOrDefault()
 
 namespace App_Citas_medicas_backend.Data
 {
-    public class MedicosData
+    public class MedicoData
     {
-        public static bool RegistrarMedico(Medicos oMedicos)
+        // Asumo que 'ConexionBD' es una clase que ya tienes y maneja la conexión a la DB.
+        // También asumo que 'EjecutarSentenciaConDetalle' es tu método centralizado
+        // que maneja errores y re-lanza excepciones SQL.
+
+        // Método centralizado para ejecutar sentencias y obtener resultados de error de SQL Server
+        // Retorna true si la sentencia se ejecutó sin lanzar excepción de SQL Server, false en caso contrario
+        // Replicado desde UsuarioData si no es accesible directamente
+        private static bool EjecutarSentenciaConDetalle(ConexionBD objEst, string sentencia)
+        {
+            try
+            {
+                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                return resultado;
+            }
+            catch (SqlException sqlEx)
+            {
+                Console.WriteLine($"ERROR SQL al ejecutar sentencia de Medico: {sentencia}");
+                Console.WriteLine($"Mensaje SQL: {sqlEx.Message}");
+                Console.WriteLine($"Número de Error SQL: {sqlEx.Number}");
+                Console.WriteLine($"Línea: {sqlEx.LineNumber}");
+                throw; // Relanzar la excepción para que sea capturada por el catch superior
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR GENERAL al ejecutar sentencia de Medico: {sentencia}");
+                Console.WriteLine($"Mensaje General: {ex.Message}");
+                throw; // Relanzar la excepción
+            }
+        }
+
+
+        // Implementación de RegistrarMedico
+        public static bool RegistrarMedico(Medico oMedico)
         {
             try
             {
                 ConexionBD objEst = new ConexionBD();
 
-                // Manejo de FechaRegistro para permitir valores nulos
-                string fechaRegistro = oMedicos.FechaRegistro == DateTime.MinValue
-                    ? "NULL"
-                    : $"'{oMedicos.FechaRegistro:yyyy-MM-dd HH:mm:ss}'";
+                string estatusParam = oMedico.Estatus ? "1" : "0";
 
-                // Construcción de la sentencia SQL
+                // Asegúrate de que los parámetros INT no tengan comillas simples
                 string sentencia = $"EXEC RegistrarMedico " +
-                                   $"'{oMedicos.Cedula}', " +
-                                   $"'{oMedicos.Nombre}', " +
-                                   $"'{oMedicos.Apellido}', " +
-                                   $"'{oMedicos.EspecialidadId}', " +
-                                   $"'{oMedicos.Email}', " +
-                                   $"'{oMedicos.Contrasena}', " +
-                                   $"'{(oMedicos.Estatus ? 1 : 0)}', " +
-                                   $"{fechaRegistro}";
+                                   $"{oMedico.Cedula}, " +
+                                   $"'{oMedico.Nombre}', " +
+                                   $"'{oMedico.Apellido}', " +
+                                   $"{oMedico.EspecialidadId}, " +
+                                   $"'{oMedico.Email}', " +
+                                   $"'{oMedico.Contrasena}', " +
+                                   $"{estatusParam};";
 
-                Console.WriteLine("Ejecutando SQL: " + sentencia);
+                Console.WriteLine("Ejecutando SQL (RegistrarMedico): " + sentencia);
 
-                // Ejecución de la sentencia
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
+                bool resultado = EjecutarSentenciaConDetalle(objEst, sentencia);
 
-                if (!resultado)
-                {
-                    Console.WriteLine("Error: La ejecución de la sentencia SQL falló.");
-                }
-
-                objEst = null;
+                // Tu SP RegistrarMedico devuelve 1 para éxito y -1 para error.
+                // Tu EjecutarSentenciaConDetalle re-lanza la excepción si hay un error SQL,
+                // así que este 'resultado' solo reflejará si la sentencia se ejecutó sin excepción.
+                // Si el SP devuelve -1 sin lanzar excepción, tendrías que leer el valor de retorno.
+                // Por ahora, asumimos que si no hay excepción, es éxito.
                 return resultado;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error en RegistrarMedico: " + ex.Message);
-                return false;
+                Console.WriteLine("Error crítico en RegistrarMedico (MedicoData): " + ex.Message);
+                throw; // Re-lanza la excepción para que el controlador la capture
             }
         }
 
-
-
-        public static bool ActualizarMedico(Medicos oMedicos)
+        // Implementación de ActualizarMedico
+        public static bool ActualizarMedico(Medico oMedico)
         {
             try
             {
                 ConexionBD objEst = new ConexionBD();
 
-                // Construcción de la sentencia SQL con solo los campos modificables
+                string estatusParam = oMedico.Estatus ? "1" : "0";
+
+                // Asegúrate de que los parámetros INT no tengan comillas simples
                 string sentencia = $"EXEC ActualizarMedico " +
-                                   $"'{oMedicos.Id}', " + // Se usa solo para identificar el registro
-                                   $"'{oMedicos.Nombre}', " +
-                                   $"'{oMedicos.Apellido}', " +
-                                   $"'{oMedicos.EspecialidadId}', " +
-                                   $"'{oMedicos.Email}', " +
-                                   $"'{(oMedicos.Estatus ? 1 : 0)}'"; // Si `Estatus` es modificable
+                                   $"{oMedico.Id}, " + // @MedicoId
+                                   $"'{oMedico.Nombre}', " +
+                                   $"'{oMedico.Apellido}', " +
+                                   $"{oMedico.EspecialidadId}, " +
+                                   $"'{oMedico.Email}', " +
+                                   $"{estatusParam};"; // @Estatus
 
-                Console.WriteLine("Ejecutando SQL: " + sentencia);
+                Console.WriteLine("Ejecutando SQL (ActualizarMedico): " + sentencia);
 
-                // Ejecución de la sentencia
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
-
-                objEst = null;
+                bool resultado = EjecutarSentenciaConDetalle(objEst, sentencia);
                 return resultado;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error en ActualizarMedico: " + ex.Message);
-                return false;
+                Console.WriteLine("Error crítico en ActualizarMedico (MedicoData): " + ex.Message);
+                throw; // Re-lanza la excepción
             }
         }
 
-
-        public static Medicos ConsultarMedico(int id)
+        // Implementación de ListarMedicos
+        public static List<Medico> ListarMedicos()
         {
-            try
-            {
-                ConexionBD objEst = new ConexionBD();
-                string sentencia = $"EXEC ConsultarMedico '{id}'";
-
-                if (objEst.Consultar(sentencia, false))
-                {
-                    SqlDataReader dr = objEst.Reader;
-                    if (dr.Read())
-                    {
-                        return new Medicos()
-                        {
-                            Id = Convert.ToInt32(dr["Id"]),
-                            Nombre = dr["Nombre"].ToString(),
-                            Apellido = dr["Apellido"].ToString(),
-                            EspecialidadId = Convert.ToInt32(dr["EspecialidadId"]),
-                            Email = dr["Email"].ToString()
-                        };
-                    }
-                    dr.Close();
-                }
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error en ConsultarMedico: " + ex.Message);
-                return null;
-            }
-        }
-
-        public static List<Medicos> ListarMedicos()
-        {
-            List<Medicos> lista = new List<Medicos>();
+            List<Medico> listaMedicos = new List<Medico>();
             ConexionBD objEst = new ConexionBD();
-            string sentencia = "EXEC ListarMedicos";
+            string sentencia = "EXECUTE ListarMedicos;";
 
             if (objEst.Consultar(sentencia, false))
             {
                 SqlDataReader dr = objEst.Reader;
                 while (dr.Read())
                 {
-                    lista.Add(new Medicos()
+                    listaMedicos.Add(new Medico()
                     {
-                        Id = Convert.ToInt32(dr["Id"]),
-                        Nombre = dr["Nombre"].ToString(),
-                        Apellido = dr["Apellido"].ToString(),
-                        EspecialidadId = Convert.ToInt32(dr["EspecialidadId"]),
-                        Email = dr["Email"].ToString()
+                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                        Nombre = dr["Nombre"]?.ToString(),
+                        Apellido = dr["Apellido"]?.ToString(),
+                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : 0, // Un médico siempre tiene especialidad
+                        Email = dr["Email"]?.ToString(),
+                        // Contrasena no se selecciona al listar por seguridad
+                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
+                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
                     });
                 }
                 dr.Close();
             }
-            return lista;
+            return listaMedicos;
+        }
+
+        // Implementación de ObtenerMedico (por ID)
+        public static Medico ObtenerMedico(int medicoId)
+        {
+            ConexionBD objEst = new ConexionBD();
+            // Tu SP se llama ObtenerMedico y recibe @MedicoId. ConsultarMedico también existe y devuelve menos campos.
+            // Usamos ObtenerMedico ya que devuelve más campos que el modelo Medico necesita.
+            string sentencia = $"EXECUTE ObtenerMedico {medicoId};";
+
+            if (objEst.Consultar(sentencia, false))
+            {
+                SqlDataReader dr = objEst.Reader;
+                if (dr.Read()) // Solo esperamos una fila
+                {
+                    Medico medico = new Medico()
+                    {
+                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                        Nombre = dr["Nombre"]?.ToString(),
+                        Apellido = dr["Apellido"]?.ToString(),
+                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : 0,
+                        Email = dr["Email"]?.ToString(),
+                        // Contrasena no se selecciona por seguridad
+                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
+                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
+                    };
+                    dr.Close();
+                    return medico;
+                }
+                dr.Close();
+            }
+            return null; // Médico no encontrado
+        }
+
+        // Implementación de EliminarMedico
+        public static bool EliminarMedico(int medicoId)
+        {
+            // Nota: Tu SP EliminarMedico solo borra de la tabla Medicos.
+            // Si quieres desactivar también en Usuarios, debes modificar el SP.
+            string sentencia = $"EXEC EliminarMedico {medicoId};";
+            Console.WriteLine("Ejecutando SQL (EliminarMedico): " + sentencia);
+            return EjecutarSentenciaConDetalle(new ConexionBD(), sentencia);
         }
     }
 }

@@ -111,10 +111,13 @@
   <ItemGroup>
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\CitasController.cs" />
+    <Compile Include="Controllers\EspecialidadController.cs" />
     <Compile Include="Controllers\MedicosController.cs" />
     <Compile Include="Controllers\UsuarioController.cs" />
     <Compile Include="Data\CitasData.cs" />
     <Compile Include="Data\ConexionBD.cs" />
+    <Compile Include="Data\Especialidad.cs" />
+    <Compile Include="Data\EspecialidadData.cs" />
     <Compile Include="Data\MedicosData.cs" />
     <Compile Include="Data\Program.cs" />
     <Compile Include="Data\UsuarioData.cs" />
@@ -122,6 +125,7 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Models\Cita.cs" />
+    <Compile Include="Models\Especialidades.cs" />
     <Compile Include="Models\Medicos.cs" />
     <Compile Include="Models\Usuario.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
