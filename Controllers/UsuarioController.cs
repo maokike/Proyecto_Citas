@@ -25,16 +25,20 @@ namespace App_Citas_medicas_backend.Controllers
         {
             if (string.IsNullOrEmpty(id))
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: ID inválido." });
+                // Incluir 'success: false' en las respuestas de error
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { success = false, mensaje = "Error: ID inválido." });
             }
 
             var usuarios = UsuarioData.ObtenerUsuario(id);
 
             if (usuarios == null || usuarios.Count == 0)
             {
-                return Request.CreateResponse(HttpStatusCode.NotFound, new { mensaje = "Usuario no encontrado." });
+                // Incluir 'success: false' en las respuestas de NotFound
+                return Request.CreateResponse(HttpStatusCode.NotFound, new { success = false, mensaje = "Usuario no encontrado." });
             }
 
+            // Para éxito, puedes devolver el objeto directamente si no necesitas 'success: true' aquí
+            // O puedes envolverlo: new { success = true, usuarios = usuarios }
             return Request.CreateResponse(HttpStatusCode.OK, usuarios);
         }
 
@@ -44,91 +48,92 @@ namespace App_Citas_medicas_backend.Controllers
         {
             if (oUsuario == null)
             {
-                return BadRequest("Datos de usuario no proporcionados.");
+                return Content(HttpStatusCode.BadRequest, new { success = false, mensaje = "Datos de usuario no proporcionados." });
             }
 
             try
             {
-                // Validación en el controlador: si es médico, EspecialidadId es obligatorio
                 if (oUsuario.Rol?.ToLower() == "medico" && !oUsuario.EspecialidadId.HasValue)
                 {
-                    return BadRequest("Para el rol 'Medico', la EspecialidadId es obligatoria.");
+                    return Content(HttpStatusCode.BadRequest, new { success = false, mensaje = "Para el rol 'Medico', la EspecialidadId es obligatoria." });
                 }
 
                 bool registrado = UsuarioData.RegistrarUsuario(oUsuario);
 
                 if (registrado)
                 {
-                    return Ok(new { mensaje = "Usuario registrado correctamente." });
+                    return Ok(new { success = true, mensaje = "Usuario registrado correctamente." });
                 }
                 else
                 {
-                    // Si la capa de datos devuelve false sin lanzar excepción
-                    return BadRequest("No se pudo registrar el usuario. Verifique los datos o si ya existe.");
+                    return Content(HttpStatusCode.BadRequest, new { success = false, mensaje = "No se pudo registrar el usuario. Verifique los datos o si ya existe." });
                 }
             }
             catch (SqlException sqlEx) // Captura excepciones específicas de SQL Server
             {
                 Console.WriteLine($"Error SQL al registrar usuario en el controlador: {sqlEx.Message}");
-                // Devuelve un mensaje de error detallado de SQL Server
-                return InternalServerError(new Exception($"Error de base de datos al registrar usuario: {sqlEx.Message}"));
+                // ***** CAMBIO CLAVE AQUÍ: Usar Content() para InternalServerError *****
+                return Content(HttpStatusCode.InternalServerError, new { success = false, mensaje = $"Error de base de datos al registrar usuario: {sqlEx.Message}" });
             }
             catch (Exception ex) // Captura cualquier otra excepción
             {
                 Console.WriteLine($"Error general al registrar usuario en el controlador: {ex.Message}");
-                return InternalServerError(ex);
+                // ***** CAMBIO CLAVE AQUÍ: Usar Content() para InternalServerError *****
+                return Content(HttpStatusCode.InternalServerError, new { success = false, mensaje = $"Ocurrió un error inesperado: {ex.Message}" });
             }
         }
 
         // PUT api/Usuario/{id}
+        // Este método ya usaba Request.CreateResponse, que es compatible con objetos anónimos.
+        // Solo para asegurar, verifica que las llamadas a Request.CreateResponse sean correctas.
         [HttpPut]
         [Route("api/Usuario/{id}")]
         public HttpResponseMessage ActualizarUsuario(int id, [FromBody] Usuario oUsuario)
         {
             if (oUsuario == null || id <= 0)
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: Datos inválidos." });
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { success = false, mensaje = "Error: Datos inválidos." });
             }
 
-            oUsuario.Id = id; // Asegura que el ID del usuario coincide con el proporcionado en la ruta.
+            oUsuario.Id = id;
 
-            // Validación en el controlador: si es médico, EspecialidadId es obligatorio
             if (oUsuario.Rol?.ToLower() == "medico" && !oUsuario.EspecialidadId.HasValue)
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Para el rol 'Medico', la EspecialidadId es obligatoria." });
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { success = false, mensaje = "Para el rol 'Medico', la EspecialidadId es obligatoria." });
             }
 
             bool actualizado = UsuarioData.ActualizarUsuario(oUsuario);
 
             if (actualizado)
             {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario actualizado correctamente." });
+                return Request.CreateResponse(HttpStatusCode.OK, new { success = true, mensaje = "Usuario actualizado correctamente." });
             }
             else
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al actualizar el usuario. Verifique los datos." });
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { success = false, mensaje = "Error al actualizar el usuario. Verifique los datos." });
             }
         }
 
         // DELETE api/Usuario/{id}
+        // Este método ya usaba Request.CreateResponse, que es compatible con objetos anónimos.
         [HttpDelete]
         [Route("api/Usuario/{id}")]
         public HttpResponseMessage EliminarUsuario(string id)
         {
             if (string.IsNullOrEmpty(id))
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest, new { mensaje = "Error: ID de usuario inválido." });
+                return Request.CreateResponse(HttpStatusCode.BadRequest, new { success = false, mensaje = "Error: ID de usuario inválido." });
             }
 
             bool eliminado = UsuarioData.EliminarUsuario(id);
 
             if (eliminado)
             {
-                return Request.CreateResponse(HttpStatusCode.OK, new { mensaje = "Usuario eliminado correctamente." });
+                return Request.CreateResponse(HttpStatusCode.OK, new { success = true, mensaje = "Usuario eliminado correctamente." });
             }
             else
             {
-                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { mensaje = "Error al eliminar el usuario o usuario no encontrado." });
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, new { success = false, mensaje = "Error al eliminar el usuario o usuario no encontrado." });
             }
         }
     }
