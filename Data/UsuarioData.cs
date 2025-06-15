@@ -2,42 +2,21 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient; // Asegúrate de que este using esté presente
+using System.Data.SqlClient; // Necesario para SqlConnection, SqlCommand, SqlDataReader
 using System.Linq; // Para usar .FirstOrDefault()
 
 namespace App_Citas_medicas_backend.Data
 {
     public class UsuarioData
     {
-        // NO NECESITARÁS EjecutarSentenciaConDetalle si usas los nuevos métodos de ConexionBD.
-        // Lo eliminamos ya que su lógica se incorpora en los catches de ConexionBD y el manejo en la capa superior.
-        /*
-        private static bool EjecutarSentenciaConDetalle(ConexionBD objEst, string sentencia)
-        {
-            try
-            {
-                bool resultado = objEst.EjecutarSentencia(sentencia, false);
-                return resultado;
-            }
-            catch (SqlException sqlEx)
-            {
-                Console.WriteLine($"ERROR SQL al ejecutar sentencia: {sentencia}");
-                Console.WriteLine($"Mensaje SQL: {sqlEx.Message}");
-                Console.WriteLine($"Número de Error SQL: {sqlEx.Number}");
-                Console.WriteLine($"Línea: {sqlEx.LineNumber}");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERROR GENERAL al ejecutar sentencia: {sentencia}");
-                Console.WriteLine($"Mensaje General: {ex.Message}");
-                throw;
-            }
-        }
-        */
+        // NOTA IMPORTANTE SOBRE SEGURIDAD DE CONTRASEÑAS:
+        // Para una aplicación real, NUNCA almacenes contraseñas en texto plano en la base de datos.
+        // Siempre usa un algoritmo de hash seguro (ej. BCrypt, PBKDF2) con un salt aleatorio antes de guardarlas.
+        // Aquí se asume que 'oUsuario.Contrasena' y 'nuevaContrasena' ya vienen hasheadas o serán hasheadas ANTES de usar este método.
+
 
         // Métodos de Gestión de Usuario (Registrar, Actualizar, Listar, Obtener, Eliminar)
-        // Usando el nuevo enfoque con parámetros y ExecuteStoredProcedureConRetorno / DataTable
+        // Estos métodos usan el enfoque de Stored Procedures con parámetros, lo cual es seguro.
 
         public static bool RegistrarUsuario(Usuario oUsuario)
         {
@@ -50,7 +29,7 @@ namespace App_Citas_medicas_backend.Data
                 parametros.Add(new SqlParameter("@Nombre", oUsuario.Nombre));
                 parametros.Add(new SqlParameter("@Apellido", oUsuario.Apellido));
                 parametros.Add(new SqlParameter("@Email", oUsuario.Email));
-                parametros.Add(new SqlParameter("@Contrasena", oUsuario.Contrasena));
+                parametros.Add(new SqlParameter("@Contrasena", oUsuario.Contrasena)); // Se asume que ya viene hasheada
                 parametros.Add(new SqlParameter("@Rol", oUsuario.Rol));
 
                 if (oUsuario.EspecialidadId.HasValue)
@@ -72,7 +51,7 @@ namespace App_Citas_medicas_backend.Data
             catch (Exception ex)
             {
                 Console.WriteLine("Error crítico en RegistrarUsuario (UsuarioData): " + ex.Message);
-                throw; // Re-lanza la excepción
+                throw; // Re-lanza la excepción para que el controlador la capture
             }
         }
 
@@ -88,7 +67,7 @@ namespace App_Citas_medicas_backend.Data
                 parametros.Add(new SqlParameter("@Nombre", oUsuario.Nombre));
                 parametros.Add(new SqlParameter("@Apellido", oUsuario.Apellido));
                 parametros.Add(new SqlParameter("@Email", oUsuario.Email));
-                parametros.Add(new SqlParameter("@Contrasena", oUsuario.Contrasena));
+                parametros.Add(new SqlParameter("@Contrasena", oUsuario.Contrasena)); // Se asume que ya viene hasheada
                 parametros.Add(new SqlParameter("@NuevoRol", oUsuario.Rol)); // Tu SP espera @NuevoRol
 
                 if (oUsuario.EspecialidadId.HasValue)
@@ -117,44 +96,70 @@ namespace App_Citas_medicas_backend.Data
         public static List<Usuario> ListarUsuarios()
         {
             List<Usuario> listarUsuarios = new List<Usuario>();
+            string sentencia = "EXECUTE ListarUsuarios;"; // SP existente para listar
             ConexionBD objEst = new ConexionBD();
-            string sentencia = "EXECUTE ListarUsuarios;"; // Tu SP ListarUsuarios no toma parámetros
 
-            if (objEst.Consultar(sentencia, false)) // 'false' porque es texto, no SP con parámetros
+            Console.WriteLine("DEBUG: Intentando listar usuarios...");
+            Console.WriteLine($"DEBUG: Cadena de Conexión usada: {ConexionBD.cadenaConexion}");
+
+            if (objEst.Consultar(sentencia, false))
             {
                 SqlDataReader dr = objEst.Reader;
-                while (dr.Read())
+                int count = 0;
+                try
                 {
-                    listarUsuarios.Add(new Usuario()
+                    while (dr.Read())
                     {
-                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
-                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
-                        Nombre = dr["Nombre"]?.ToString(),
-                        Apellido = dr["Apellido"]?.ToString(),
-                        Email = dr["Email"]?.ToString(),
-                        Contrasena = dr["Contrasena"]?.ToString(), // Considera no obtener contraseñas en listas por seguridad
-                        Rol = dr["Rol"]?.ToString(),
-                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
-                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
-                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
-                    });
+                        try
+                        {
+                            listarUsuarios.Add(new Usuario()
+                            {
+                                Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                                Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                                Nombre = dr["Nombre"]?.ToString(),
+                                Apellido = dr["Apellido"]?.ToString(),
+                                Email = dr["Email"]?.ToString(),
+                                Contrasena = dr["Contrasena"]?.ToString(),
+                                Rol = dr["Rol"]?.ToString(),
+                                EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
+                                Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
+                                FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
+                            });
+                            count++;
+                        }
+                        catch (Exception recordEx)
+                        {
+                            Console.WriteLine($"ERROR: Fallo al leer o mapear un registro de usuario: {recordEx.Message}");
+                        }
+                    }
                 }
-                dr.Close(); // Asegúrate de cerrar el reader
+                catch (Exception readLoopEx)
+                {
+                    Console.WriteLine($"ERROR: Fallo general durante la lectura de SqlDataReader: {readLoopEx.Message}");
+                }
+                finally
+                {
+                    if (dr != null && !dr.IsClosed)
+                    {
+                        dr.Close();
+                    }
+                }
+                Console.WriteLine($"DEBUG: Número de usuarios leídos y mapeados: {count}");
             }
-            // Los errores de objEst.Consultar se manejan en ConexionBD y se registran en strError.
-            // Aquí simplemente retornamos la lista (vacía si hubo un error).
+            else
+            {
+                Console.WriteLine($"DEBUG: objEst.Consultar devolvió false. Error: {objEst.strError}");
+            }
             return listarUsuarios;
         }
 
-        public static List<Usuario> ObtenerUsuario(string id)
+        public static List<Usuario> ObtenerUsuario(string id) // Se recomienda que el parámetro 'id' sea INT si tu SP lo espera
         {
             List<Usuario> listarUsuarios = new List<Usuario>();
+            string sentencia = $"EXECUTE ObtenerUsuario {id};"; // SP existente para obtener por ID
             ConexionBD objEst = new ConexionBD();
-            // Como tu SP ObtenerUsuario espera un INT, convertimos y pasamos sin comillas.
-            // Idealmente, este método debería recibir un 'int id'
-            string sentencia = $"EXECUTE ObtenerUsuario {id};";
 
-            if (objEst.Consultar(sentencia, false)) // 'false' porque es texto, no SP con parámetros
+            if (objEst.Consultar(sentencia, false))
             {
                 SqlDataReader dr = objEst.Reader;
                 while (dr.Read())
@@ -181,154 +186,188 @@ namespace App_Citas_medicas_backend.Data
         public static bool EliminarUsuario(string id)
         {
             ConexionBD objEst = new ConexionBD();
-            // Asumo que EliminarUsuario SP espera un INT
-            string sentencia = $"EXECUTE EliminarUsuario {id};"; // Sin comillas si el SP espera INT
-
+            string sentencia = $"EXECUTE EliminarUsuario {id};"; // SP existente para eliminar
             try
             {
-                // Este método llamará a EjecutarSentencia, que re-lanzará la excepción.
                 return objEst.EjecutarSentencia(sentencia, false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error crítico en EliminarUsuario (UsuarioData): " + ex.Message);
-                throw; // Re-lanza para el controlador
+                throw;
             }
         }
 
-        // Métodos para Recuperación de Contraseña (Revisados para usar parámetros seguros en futuras refactorizaciones)
-        public static Usuario GetUserByEmail(string email)
+
+        // *************************************************************************************
+        // Métodos ESPECÍFICOS para Recuperación de Contraseña (Seguros y Refactorizados)
+        // *************************************************************************************
+
+        // Método para obtener un Usuario por su dirección de correo electrónico (seguro con parámetros)
+        public static Usuario ObtenerUsuarioPorEmail(string email)
         {
-            ConexionBD objEst = new ConexionBD();
-            // --- CÓDIGO TEMPORAL (VULNERABLE A INYECCIÓN SQL) ---
-            // IDEALMENTE: Usa objEst.EjecutarProcedimientoAlmacenado o un método específico con SqlParameter
-            string sentencia = $"SELECT Id, Cedula, Nombre, Apellido, Email, Contrasena, Rol, EspecialidadId, Estatus, FechaRegistro FROM Usuarios WHERE Email = '{email}';";
-            // --- FIN CÓDIGO TEMPORAL ---
-
-            List<Usuario> usuarios = new List<Usuario>();
-            if (objEst.Consultar(sentencia, false))
-            {
-                SqlDataReader dr = objEst.Reader;
-                while (dr.Read())
-                {
-                    usuarios.Add(new Usuario()
-                    {
-                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
-                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
-                        Nombre = dr["Nombre"]?.ToString(),
-                        Apellido = dr["Apellido"]?.ToString(),
-                        Email = dr["Email"]?.ToString(),
-                        Contrasena = dr["Contrasena"]?.ToString(),
-                        Rol = dr["Rol"]?.ToString(),
-                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
-                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
-                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
-                    });
-                }
-                dr.Close();
-            }
-            return usuarios.FirstOrDefault();
-        }
-
-        public static string GeneratePasswordResetToken(string email, int userId)
-        {
-            ConexionBD objEst = new ConexionBD();
-            string token = Guid.NewGuid().ToString("N");
-            DateTime expiresAt = DateTime.Now.AddHours(1);
-
-            // --- CÓDIGO TEMPORAL (VULNERABLE A INYECCIÓN SQL) ---
-            string sentencia = $"INSERT INTO PasswordResetTokens (UserId, Token, ExpiresAt, IsUsed) " +
-                               $"VALUES ({userId}, '{token}', '{expiresAt:yyyy-MM-dd HH:mm:ss}', 0);";
-            // --- FIN CÓDIGO TEMPORAL ---
+            Usuario usuario = null;
+            string sentencia = "SELECT Id, Cedula, Nombre, Apellido, Email, Contrasena, Rol, EspecialidadId, Estatus, FechaRegistro FROM Usuarios WHERE Email = @Email;";
 
             try
             {
-                // Usamos EjecutarSentencia aquí, que re-lanzará la excepción si falla.
-                if (objEst.EjecutarSentencia(sentencia, false))
+                using (SqlConnection cn = new SqlConnection(ConexionBD.cadenaConexion))
                 {
-                    return token;
+                    using (SqlCommand cmd = new SqlCommand(sentencia, cn))
+                    {
+                        cmd.CommandType = CommandType.Text;
+                        cmd.Parameters.AddWithValue("@Email", email);
+
+                        cn.Open();
+                        using (SqlDataReader dr = cmd.ExecuteReader())
+                        {
+                            if (dr.Read())
+                            {
+                                usuario = new Usuario()
+                                {
+                                    Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                                    Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                                    Nombre = dr["Nombre"]?.ToString(),
+                                    Apellido = dr["Apellido"]?.ToString(),
+                                    Email = dr["Email"]?.ToString(),
+                                    Contrasena = dr["Contrasena"]?.ToString(),
+                                    Rol = dr["Rol"]?.ToString(),
+                                    EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
+                                    Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
+                                    FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
+                                };
+                            }
+                        }
+                    }
                 }
-                return null; // Falló al guardar el token sin excepción
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al generar token de recuperación: {ex.Message}");
-                throw; // Re-lanza para el controlador
+                Console.WriteLine($"Error en ObtenerUsuarioPorEmail: {ex.Message}");
+                return null;
             }
+            return usuario;
         }
 
-        public static Usuario ValidatePasswordResetToken(string token)
+        // Método para guardar un nuevo token de restablecimiento de contraseña (seguro, usa SP)
+        public static bool GuardarTokenRestablecimientoContrasena(int userId, string token, DateTime expiresAt)
         {
-            ConexionBD objEst = new ConexionBD();
-            List<Usuario> usuarios = new List<Usuario>();
-
-            // --- CÓDIGO TEMPORAL (VULNERABLE A INYECCIÓN SQL) ---
-            string sentencia = $"SELECT U.Id, U.Cedula, U.Nombre, U.Apellido, U.Email, U.Contrasena, U.Rol, U.EspecialidadId, U.Estatus, U.FechaRegistro FROM Usuarios U " +
-                               $"INNER JOIN PasswordResetTokens PRT ON U.Id = PRT.UserId " +
-                               $"WHERE PRT.Token = '{token}' " +
-                               $"AND PRT.ExpiresAt > GETDATE() " +
-                               $"AND PRT.IsUsed = 0;";
-            // --- FIN CÓDIGO TEMPORAL ---
-
-            if (objEst.Consultar(sentencia, false))
+            string nombreSP = "GuardarPasswordResetToken";
+            List<SqlParameter> parametros = new List<SqlParameter>
             {
-                SqlDataReader dr = objEst.Reader;
-                while (dr.Read())
-                {
-                    usuarios.Add(new Usuario()
-                    {
-                        Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
-                        Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
-                        Nombre = dr["Nombre"]?.ToString(),
-                        Apellido = dr["Apellido"]?.ToString(),
-                        Email = dr["Email"]?.ToString(),
-                        Contrasena = dr["Contrasena"]?.ToString(),
-                        Rol = dr["Rol"]?.ToString(),
-                        EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
-                        Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
-                        FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
-                    });
-                }
-                dr.Close();
-            }
-
-            if (usuarios.Any())
-            {
-                // Marcar el token como usado
-                // --- CÓDIGO TEMPORAL (VULNERABLE A INYECCIÓN SQL) ---
-                string updateTokenSentencia = $"UPDATE PasswordResetTokens SET IsUsed = 1 WHERE Token = '{token}';";
-                // --- FIN CÓDIGO TEMPORAL ---
-                Console.WriteLine("Ejecutando SQL (ValidatePasswordResetToken - Update IsUsed): " + updateTokenSentencia);
-                try
-                {
-                    objEst.EjecutarSentencia(updateTokenSentencia, false);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error al marcar token de restablecimiento como usado: {ex.Message}");
-                    // No relanzamos aquí, ya que el usuario ya ha sido validado.
-                }
-                return usuarios.FirstOrDefault();
-            }
-            return null; // Token no válido o expirado o ya usado
-        }
-
-        public static bool UpdatePassword(int userId, string newPassword)
-        {
-            ConexionBD objEst = new ConexionBD();
-            // --- CÓDIGO TEMPORAL (VULNERABLE A INYECCIÓN SQL y NO HASHEO) ---
-            string sentencia = $"UPDATE Usuarios SET Contrasena = '{newPassword}' WHERE Id = {userId};";
-            // --- FIN CÓDIGO TEMPORAL ---
+                new SqlParameter("@UserId", userId),
+                new SqlParameter("@Token", token),
+                new SqlParameter("@ExpiresAt", expiresAt)
+            };
 
             try
             {
-                return objEst.EjecutarSentencia(sentencia, false);
+                ConexionBD objConexion = new ConexionBD();
+                int resultado = objConexion.EjecutarStoredProcedureConRetorno(nombreSP, parametros);
+                return resultado == 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en GuardarTokenRestablecimientoContrasena: {ex.Message}");
+                return false;
+            }
+        }
+
+        // Método para validar un token de restablecimiento de contraseña y obtener el usuario (seguro con parámetros)
+        // Y marca el token como usado.
+        public static Usuario ValidarTokenRestablecimientoContrasena(string token)
+        {
+            Usuario usuario = null;
+            string selectSentencia = "SELECT U.Id, U.Cedula, U.Nombre, U.Apellido, U.Email, U.Contrasena, U.Rol, U.EspecialidadId, U.Estatus, U.FechaRegistro FROM Usuarios U " +
+                                    "INNER JOIN PasswordResetTokens PRT ON U.Id = PRT.UserId " +
+                                    "WHERE PRT.Token = @Token AND PRT.ExpiresAt > GETDATE() AND PRT.IsUsed = 0;";
+
+            string updateTokenSentencia = "UPDATE PasswordResetTokens SET IsUsed = 1 WHERE Token = @Token;";
+
+            try
+            {
+                using (SqlConnection cn = new SqlConnection(ConexionBD.cadenaConexion))
+                {
+                    cn.Open();
+
+                    // 1. Validar el token y obtener usuario
+                    using (SqlCommand cmdSelect = new SqlCommand(selectSentencia, cn))
+                    {
+                        cmdSelect.Parameters.AddWithValue("@Token", token);
+                        using (SqlDataReader dr = cmdSelect.ExecuteReader())
+                        {
+                            if (dr.Read())
+                            {
+                                usuario = new Usuario()
+                                {
+                                    Id = dr["Id"] != DBNull.Value ? Convert.ToInt32(dr["Id"]) : 0,
+                                    Cedula = dr["Cedula"] != DBNull.Value ? Convert.ToInt32(dr["Cedula"]) : 0,
+                                    Nombre = dr["Nombre"]?.ToString(),
+                                    Apellido = dr["Apellido"]?.ToString(),
+                                    Email = dr["Email"]?.ToString(),
+                                    Contrasena = dr["Contrasena"]?.ToString(),
+                                    Rol = dr["Rol"]?.ToString(),
+                                    EspecialidadId = dr["EspecialidadId"] != DBNull.Value ? Convert.ToInt32(dr["EspecialidadId"]) : (int?)null,
+                                    Estatus = dr["Estatus"] != DBNull.Value ? Convert.ToBoolean(dr["Estatus"]) : false,
+                                    FechaRegistro = dr["FechaRegistro"] != DBNull.Value ? Convert.ToDateTime(dr["FechaRegistro"]) : DateTime.MinValue
+                                };
+                            }
+                        }
+                    }
+
+                    // 2. Marcar el token como usado (solo si el usuario fue encontrado y el token es válido)
+                    if (usuario != null)
+                    {
+                        using (SqlCommand cmdUpdate = new SqlCommand(updateTokenSentencia, cn))
+                        {
+                            cmdUpdate.Parameters.AddWithValue("@Token", token);
+                            cmdUpdate.ExecuteNonQuery();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error en ValidarTokenRestablecimientoContrasena: {ex.Message}");
+                return null;
+            }
+            return usuario;
+        }
+
+        // Método para actualizar la contraseña de un usuario (seguro con parámetros)
+        public static bool ActualizarContrasena(int userId, string nuevaContrasena)
+        {
+            // ¡IMPORTANTE! Aquí es donde DEBES hashear 'nuevaContrasena' antes de guardarla.
+            // Si no lo haces, estarás almacenando contraseñas en texto plano, lo cual es un riesgo grave.
+            // Ejemplo (necesitarías una librería de hashing como BCrypt.Net):
+            // string hashedPassword = BCrypt.Net.BCrypt.HashPassword(nuevaContrasena);
+            string hashedPassword = nuevaContrasena; // <-- RECUERDA: ¡CAMBIAR ESTO POR HASHING REAL!
+
+            string sentencia = "UPDATE Usuarios SET Contrasena = @NewPassword WHERE Id = @UserId;";
+
+            try
+            {
+                using (SqlConnection cn = new SqlConnection(ConexionBD.cadenaConexion))
+                {
+                    using (SqlCommand cmd = new SqlCommand(sentencia, cn))
+                    {
+                        cmd.CommandType = CommandType.Text;
+                        cmd.Parameters.AddWithValue("@NewPassword", hashedPassword);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+
+                        cn.Open();
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        cn.Close();
+                        return rowsAffected > 0;
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al actualizar contraseña: {ex.Message}");
-                throw;
+                throw; // Re-lanza la excepción para que el controlador la capture.
             }
         }
-    }
-}
+
+    } 
+} 

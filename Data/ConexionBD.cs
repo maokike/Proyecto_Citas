@@ -1,318 +1,140 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
-using System.Configuration;
+using System.Data.SqlClient; // Necesario para SqlConnection, SqlCommand, SqlDataReader
+using System.Collections.Generic; // Necesario para List<SqlParameter>
 
 namespace App_Citas_medicas_backend.Data
 {
     public class ConexionBD
     {
-        #region "Atributos Privados"
-        private string strError;
-        private string cadenaConexion;
-        private SqlDataReader objReader; // Se mantiene para la propiedad Reader
-        private string strVrUnico;
-        private SqlConnection currentOpenConnection; // <--- Nuevo atributo para la conexión abierta
-        #endregion
+        
 
-        #region "Constructor"
-        public ConexionBD()
+        public static string cadenaConexion = "Data Source=BD_clinica.mssql.somee.com;Initial Catalog=BD_Clinica;User ID=Maoelias123__SQLLogin_1;Password=fdmdmns12t;";
+       
+
+
+        // Propiedad para el SqlDataReader. Se usará cuando un método necesite leer datos.
+        public SqlDataReader Reader { get; private set; }
+
+        // Propiedad para almacenar mensajes de error (útil para depuración).
+        public string strError { get; private set; }
+
+        // Método para ejecutar sentencias SQL que no devuelven datos (INSERT, UPDATE, DELETE).
+        // Puede ejecutar sentencias directas o un Stored Procedure (si isStoredProcedure es true).
+        public bool EjecutarSentencia(string sentencia, bool isStoredProcedure)
         {
-            try
+            using (SqlConnection cn = new SqlConnection(cadenaConexion))
             {
-                cadenaConexion = ConfigurationManager.ConnectionStrings["ClinicaDB"].ConnectionString;
-            }
-            catch (Exception ex)
-            {
-                strError = "Error al cargar la cadena de conexión del Web.config: " + ex.Message;
-                throw new ApplicationException("Fallo al inicializar la conexión a la base de datos.", ex);
-            }
-
-            strError = "";
-            strVrUnico = "";
-            currentOpenConnection = null; // Inicializar en null
-        }
-        #endregion
-
-        #region "Propiedades Públicas"
-        public SqlDataReader Reader
-        {
-            get { return objReader; }
-        }
-
-        public string Error
-        {
-            set { strError = value; }
-            get { return strError; }
-        }
-
-        public string ValorUnico
-        {
-            get { return strVrUnico; }
-        }
-        #endregion
-
-        #region "Métodos de Conexión"
-
-        // Este método ahora es público para que los consumidores puedan abrir la conexión.
-        // Pero es mejor que los métodos que usan 'using' creen su propia conexión.
-        // Lo mantendremos para compatibilidad con tu patrón objEst.Consultar.
-        public SqlConnection AbrirConexionParaReader() // <--- Renombrado para claridad
-        {
-            SqlConnection cnn = new SqlConnection(cadenaConexion);
-            try
-            {
-                cnn.Open();
-                currentOpenConnection = cnn; // <--- Almacenar la conexión abierta
-                return cnn;
-            }
-            catch (SqlException sqlEx)
-            {
-                strError = "Error de SQL al abrir la conexión: " + sqlEx.Message;
-                throw;
-            }
-            catch (Exception ex)
-            {
-                strError = "Error general al abrir la conexión: " + ex.Message;
-                throw;
-            }
-        }
-
-        // Este método ya no es tan necesario si usas 'using (SqlConnection ...)' en cada método.
-        // Los 'using' aseguran que la conexión se cierra y los recursos se liberan automáticamente.
-        public void CerrarConexion()
-        {
-            if (objReader != null && !objReader.IsClosed)
-            {
-                objReader.Close();
-                objReader.Dispose();
-            }
-            objReader = null;
-
-            if (currentOpenConnection != null && currentOpenConnection.State == ConnectionState.Open)
-            {
-                currentOpenConnection.Close();
-                currentOpenConnection.Dispose();
-            }
-            currentOpenConnection = null;
-        }
-
-        #endregion
-
-        #region "Métodos de Ejecución SQL"
-
-        // Método para consultas que devuelven un SqlDataReader (ej. SELECTs).
-        // Se asegura que la conexión se abre y se mantiene viva para el Reader.
-        public bool Consultar(string SentenciaSQL, bool blnCon_Parametros)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(SentenciaSQL))
+                using (SqlCommand cmd = new SqlCommand(sentencia, cn))
                 {
-                    strError = "Error en instrucción SQL: La sentencia está vacía.";
-                    return false;
-                }
+                    cmd.CommandType = isStoredProcedure ? CommandType.StoredProcedure : CommandType.Text;
 
-                // Abre la conexión usando el nuevo método
-                SqlConnection conexion = AbrirConexionParaReader(); // <--- Ahora abre la conexión
-
-                using (SqlCommand comando = new SqlCommand(SentenciaSQL, conexion)) // Asocia el comando a la conexión abierta
-                {
-                    if (blnCon_Parametros)
-                        comando.CommandType = CommandType.StoredProcedure;
-                    else
-                        comando.CommandType = CommandType.Text;
-
-                    objReader = comando.ExecuteReader(); // Asigna el reader al atributo de clase
-                    return true;
+                    try
+                    {
+                        cn.Open();
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        cn.Close();
+                        return rowsAffected > 0; // Retorna true si se afectó al menos una fila.
+                    }
+                    catch (SqlException ex)
+                    {
+                        strError = $"Error SQL en EjecutarSentencia: {ex.Message}";
+                        Console.WriteLine(strError);
+                        throw; // Re-lanza la excepción para que sea manejada en capas superiores (ej. UsuarioData).
+                    }
+                    catch (Exception ex)
+                    {
+                        strError = $"Error general en EjecutarSentencia: {ex.Message}";
+                        Console.WriteLine(strError);
+                        throw;
+                    }
                 }
             }
-            catch (SqlException sqlEx)
+        }
+
+        // Método para ejecutar un Stored Procedure que devuelve un valor entero (ej. 1 para éxito, 0 para fallo).
+        public int EjecutarStoredProcedureConRetorno(string nombreSP, List<SqlParameter> parametros)
+        {
+            using (SqlConnection cn = new SqlConnection(cadenaConexion))
             {
-                strError = "Falla en consulta SQL: " + sqlEx.Message;
-                Console.WriteLine($"Error en ConexionBD.Consultar (SQL): {sqlEx.Message}");
-                CerrarConexion(); // <--- Cierra la conexión y el reader en caso de error
+                using (SqlCommand cmd = new SqlCommand(nombreSP, cn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+
+                    // Añadir todos los parámetros proporcionados al comando del SP.
+                    if (parametros != null)
+                    {
+                        foreach (SqlParameter p in parametros)
+                        {
+                            cmd.Parameters.Add(p);
+                        }
+                    }
+
+                    // Configurar un parámetro especial para capturar el valor de retorno del SP.
+                    SqlParameter retornoParam = new SqlParameter("@ReturnVal", SqlDbType.Int);
+                    retornoParam.Direction = ParameterDirection.ReturnValue;
+                    cmd.Parameters.Add(retornoParam);
+
+                    try
+                    {
+                        cn.Open();
+                        cmd.ExecuteNonQuery(); // Ejecuta el SP.
+                        cn.Close();
+                        return (int)retornoParam.Value; // Devuelve el valor entero que retornó el SP.
+                    }
+                    catch (SqlException ex)
+                    {
+                        strError = $"Error SQL en EjecutarStoredProcedureConRetorno: {ex.Message}";
+                        Console.WriteLine(strError);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        strError = $"Error general en EjecutarStoredProcedureConRetorno: {ex.Message}";
+                        Console.WriteLine(strError);
+                        throw;
+                    }
+                }
+            }
+        }
+
+        // Método para ejecutar consultas SQL y obtener datos (devuelve un SqlDataReader).
+        // Importante: El SqlDataReader debe cerrarse en el método que lo llama (ej. ListarUsuarios)
+        // Cuando el Reader se cierra, la conexión a la base de datos también se cerrará (por CommandBehavior.CloseConnection).
+        public bool Consultar(string sentencia, bool isStoredProcedure)
+        {
+            SqlConnection cn = new SqlConnection(cadenaConexion); // La conexión se crea aquí.
+            SqlCommand cmd = new SqlCommand(sentencia, cn);
+            cmd.CommandType = isStoredProcedure ? CommandType.StoredProcedure : CommandType.Text;
+
+            try
+            {
+                cn.Open();
+                Reader = cmd.ExecuteReader(CommandBehavior.CloseConnection); // Abre el Reader y configura para cerrar la conexión.
+                return true;
+            }
+            catch (SqlException ex)
+            {
+                strError = $"Error SQL en Consultar: {ex.Message}";
+                Console.WriteLine(strError);
+                if (cn.State == ConnectionState.Open) // Si la conexión se abrió pero el Reader falló, ciérrala.
+                {
+                    cn.Close();
+                }
+                Reader = null; // Asegúrate de que el Reader sea null si hay error.
                 return false;
             }
             catch (Exception ex)
             {
-                strError = "Falla en consulta general: " + ex.Message;
-                Console.WriteLine($"Error en ConexionBD.Consultar (General): {ex.Message}");
-                CerrarConexion(); // <--- Cierra la conexión y el reader en caso de error
+                strError = $"Error general en Consultar: {ex.Message}";
+                Console.WriteLine(strError);
+                if (cn.State == ConnectionState.Open)
+                {
+                    cn.Close();
+                }
+                Reader = null;
                 return false;
             }
         }
-
-        // Método para ejecutar sentencias que no devuelven datos (INSERT, UPDATE, DELETE)
-        // Usa 'using' para conexión y comando, así se cierran automáticamente.
-        public bool EjecutarSentencia(string SentenciaSQL, bool blnCon_Parametros)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(SentenciaSQL))
-                {
-                    strError = "No se ha definido la sentencia a ejecutar.";
-                    return false;
-                }
-
-                // Este método abre su propia conexión con 'using' para asegurar el cierre.
-                using (SqlConnection conexion = new SqlConnection(cadenaConexion)) // Nueva instancia de conexión
-                {
-                    conexion.Open(); // Abrir explícitamente aquí
-                    using (SqlCommand comando = new SqlCommand(SentenciaSQL, conexion))
-                    {
-                        if (blnCon_Parametros)
-                            comando.CommandType = CommandType.StoredProcedure;
-                        else
-                            comando.CommandType = CommandType.Text;
-
-                        comando.ExecuteNonQuery();
-                        return true;
-                    }
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                strError = "Error SQL al ejecutar instrucción: " + sqlEx.Message;
-                throw;
-            }
-            catch (Exception ex)
-            {
-                strError = "Error general al ejecutar instrucción: " + ex.Message;
-                throw;
-            }
-        }
-
-        // Método para Ejecutar un Procedimiento Almacenado y obtener su valor de RETORNO (RETURN 1, RETURN -1)
-        public int EjecutarStoredProcedureConRetorno(string nombreProcedimiento, List<SqlParameter> parametros = null)
-        {
-            try
-            {
-                using (SqlConnection conexion = new SqlConnection(cadenaConexion)) // Nueva instancia de conexión
-                {
-                    conexion.Open(); // Abrir explícitamente aquí
-                    using (SqlCommand comando = new SqlCommand(nombreProcedimiento, conexion))
-                    {
-                        comando.CommandType = CommandType.StoredProcedure;
-
-                        if (parametros != null)
-                        {
-                            comando.Parameters.AddRange(parametros.ToArray());
-                        }
-
-                        SqlParameter returnValue = new SqlParameter
-                        {
-                            Direction = ParameterDirection.ReturnValue
-                        };
-                        comando.Parameters.Add(returnValue);
-
-                        comando.ExecuteNonQuery();
-
-                        if (returnValue.Value != DBNull.Value)
-                        {
-                            return (int)returnValue.Value;
-                        }
-                        return -99;
-                    }
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                strError = $"Error SQL al ejecutar procedimiento '{nombreProcedimiento}': {sqlEx.Message}";
-                throw;
-            }
-            catch (Exception ex)
-            {
-                strError = $"Error general al ejecutar procedimiento '{nombreProcedimiento}': {ex.Message}";
-                throw;
-            }
-        }
-
-        // Método para consultas que devuelven un valor escalar (ej. COUNT, SUM, MAX, etc.)
-        public bool ConsultarValorUnico(string SentenciaSQL, bool blnCon_Parametros)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(SentenciaSQL))
-                {
-                    strError = "No se ha definido la sentencia a ejecutar.";
-                    return false;
-                }
-                using (SqlConnection conexion = new SqlConnection(cadenaConexion))
-                {
-                    conexion.Open(); // Abrir explícitamente aquí
-                    using (SqlCommand comando = new SqlCommand(SentenciaSQL, conexion))
-                    {
-                        if (blnCon_Parametros)
-                            comando.CommandType = CommandType.StoredProcedure;
-                        else
-                            comando.CommandType = CommandType.Text;
-
-                        object result = comando.ExecuteScalar();
-                        strVrUnico = Convert.ToString(result);
-                        return true;
-                    }
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                strError = "Error SQL al ejecutar instrucción escalar: " + sqlEx.Message;
-                throw;
-            }
-            catch (Exception ex)
-            {
-                strError = "Error general al ejecutar instrucción escalar: " + ex.Message;
-                throw;
-            }
-        }
-
-        // Este método es para llenar un DataTable. También usa 'using'.
-        public DataTable EjecutarProcedimientoAlmacenado(string nombreProcedimiento, Dictionary<string, object> parametros = null)
-        {
-            DataTable dataTable = new DataTable();
-            try
-            {
-                using (SqlConnection conexion = new SqlConnection(cadenaConexion))
-                {
-                    conexion.Open(); // Abrir explícitamente aquí
-                    using (SqlCommand comando = new SqlCommand(nombreProcedimiento, conexion))
-                    {
-                        comando.CommandType = CommandType.StoredProcedure;
-                        comando.Parameters.Clear();
-
-                        if (parametros != null)
-                        {
-                            foreach (var parametro in parametros)
-                            {
-                                SqlParameter param = new SqlParameter(parametro.Key, parametro.Value ?? DBNull.Value);
-                                comando.Parameters.Add(param);
-                            }
-                        }
-
-                        using (SqlDataAdapter dap = new SqlDataAdapter(comando))
-                        {
-                            dap.Fill(dataTable);
-                        }
-                    }
-                }
-                return dataTable;
-            }
-            catch (SqlException sqlEx)
-            {
-                strError = "Error SQL al ejecutar el procedimiento almacenado (DataTable): " + sqlEx.Message;
-                throw;
-            }
-            catch (Exception ex)
-            {
-                strError = "Error general al ejecutar el procedimiento almacenado (DataTable): " + ex.Message;
-                throw;
-            }
-        }
-
-        // Elimina este método si no lo usas.
-        // internal void LimpiarParametros() { throw new NotImplementedException(); }
-
-        #endregion
     }
 }
