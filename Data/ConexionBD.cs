@@ -10,7 +10,7 @@ namespace App_Citas_medicas_backend.Data
     {
         #region "Atributos Privados"
         private string strError;
-        private string cadenaConexion;
+        public string cadenaConexion { get; private set; }
         private SqlDataReader objReader; // Se mantiene para la propiedad Reader
         private string strVrUnico;
         private SqlConnection currentOpenConnection; // <--- Nuevo atributo para la conexión abierta
@@ -314,5 +314,52 @@ namespace App_Citas_medicas_backend.Data
         // internal void LimpiarParametros() { throw new NotImplementedException(); }
 
         #endregion
+
+        // Método NUEVO para ejecutar un Stored Procedure que devuelve MÚLTIPLES conjuntos de resultados (DataTables)
+        // y los encapsula en un DataSet.
+        public DataSet EjecutarSPMultiplesResultados(string nombreProcedimiento, List<SqlParameter> parametros = null)
+        {
+            DataSet dataSet = new DataSet();
+            try
+            {
+                using (SqlConnection conexion = new SqlConnection(cadenaConexion)) // Usa tu cadenaConexion de instancia
+                {
+                    conexion.Open(); // Abrir explícitamente aquí
+                    using (SqlCommand comando = new SqlCommand(nombreProcedimiento, conexion))
+                    {
+                        comando.CommandType = CommandType.StoredProcedure;
+                        comando.Parameters.Clear(); // Limpia parámetros previos
+
+                        if (parametros != null)
+                        {
+                            foreach (var parametro in parametros)
+                            {
+                                // Asegúrate de que los parámetros se añaden con su nombre y valor
+                                SqlParameter param = new SqlParameter(parametro.ParameterName, parametro.Value ?? DBNull.Value);
+                                comando.Parameters.Add(param);
+                            }
+                        }
+
+                        using (SqlDataAdapter dap = new SqlDataAdapter(comando))
+                        {
+                            dap.Fill(dataSet); // Llena el DataSet con todos los conjuntos de resultados
+                        }
+                    }
+                }
+                return dataSet; // Devuelve el DataSet con todas las tablas de resultados
+            }
+            catch (SqlException sqlEx)
+            {
+                strError = $"Error SQL al ejecutar procedimiento con múltiples resultados '{nombreProcedimiento}': {sqlEx.Message}";
+                Console.WriteLine(strError);
+                throw; // Re-lanza la excepción
+            }
+            catch (Exception ex)
+            {
+                strError = $"Error general al ejecutar procedimiento con múltiples resultados '{nombreProcedimiento}': {ex.Message}";
+                Console.WriteLine(strError);
+                throw;
+            }
+        }
     }
 }

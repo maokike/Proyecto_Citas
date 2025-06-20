@@ -127,6 +127,9 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Models\Cita.cs" />
+    <Compile Include="Models\DashboardCitasMensuales.cs" />
+    <Compile Include="Models\DashboardDatosCompleto.cs" />
+    <Compile Include="Models\DashboardMetricasNumericas.cs" />
     <Compile Include="Models\Especialidades.cs" />
     <Compile Include="Models\Medicos.cs" />
     <Compile Include="Models\Notificacion.cs" />
