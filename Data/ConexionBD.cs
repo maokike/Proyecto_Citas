@@ -21,7 +21,7 @@ namespace App_Citas_medicas_backend.Data
         {
             try
             {
-                cadenaConexion = ConfigurationManager.ConnectionStrings["ClinicaDB"].ConnectionString;
+                cadenaConexion = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
             }
             catch (Exception ex)
             {
@@ -31,7 +31,7 @@ namespace App_Citas_medicas_backend.Data
 
             strError = "";
             strVrUnico = "";
-            currentOpenConnection = null; // Inicializar en null
+            currentOpenConnection = null;
         }
         #endregion
 

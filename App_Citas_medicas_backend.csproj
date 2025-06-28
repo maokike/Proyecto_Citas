@@ -114,6 +114,7 @@
     <Compile Include="Controllers\EspecialidadController.cs" />
     <Compile Include="Controllers\MedicosController.cs" />
     <Compile Include="Controllers\NotificacionController.cs" />
+    <Compile Include="Controllers\UsuarioContrasenaController.cs" />
     <Compile Include="Controllers\UsuarioController.cs" />
     <Compile Include="Data\CitasData.cs" />
     <Compile Include="Data\ConexionBD.cs" />
@@ -122,6 +123,7 @@
     <Compile Include="Data\MedicosData.cs" />
     <Compile Include="Data\NotificacionData.cs" />
     <Compile Include="Data\Program.cs" />
+    <Compile Include="Data\UsuarioContrasenaData.cs" />
     <Compile Include="Data\UsuarioData.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
@@ -134,6 +136,7 @@
     <Compile Include="Models\Medicos.cs" />
     <Compile Include="Models\Notificacion.cs" />
     <Compile Include="Models\Usuario.cs" />
+    <Compile Include="Models\UsuarioContrasena.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
